@@ -58,7 +58,7 @@ claude_docs/
 │   ├── common-errors.md
 │   └── local-setup-gotchas.md
 └── log/
-    └── 2026-09.md          # laufendes Änderungsprotokoll, siehe 1.2
+    └── 2026-W38.md         # laufendes Änderungsprotokoll, siehe 1.2
 ```
 
 **`worker/claude_docs/`** — gleiches Muster, aber `architecture/`
@@ -107,9 +107,13 @@ Unterordner statt Inhalte zu duplizieren.
 
 Statt eines Git Context Controllers, der Commit-Historie nachträglich
 strukturiert: **jede Session, die etwas architekturrelevantes ändert,
-schreibt einen Eintrag in `claude_docs/log/<jahr>-<monat>.md`**, bevor
-sie endet. Ein Eintrag ist kurz — Datum, was sich geändert hat, warum,
-was der Stand am Ende war:
+schreibt einen Eintrag in `claude_docs/log/<jahr>-W<kalenderwoche>.md`**
+(ISO-Wochennummer, z. B. `2026-W38.md`), bevor sie endet. Eine Datei
+pro Kalenderwoche statt pro Monat, weil in aktiven Wochen mehrere
+Sessions mit eigenen Einträgen zusammenkommen und eine Monatsdatei
+dann schnell unübersichtlich wird, während ruhige Wochen einfach keine
+Datei erzeugen. Ein Eintrag ist kurz — Datum, was sich geändert hat,
+warum, was der Stand am Ende war:
 
 ```markdown
 ### 2026-09-15 — CORS_ORIGINS Fix gemerged, Remotes auf T3 korrigiert

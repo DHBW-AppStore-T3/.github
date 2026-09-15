@@ -96,7 +96,8 @@ done
 ```
 
 **Der Log-Ordner ist kein optionales Extra.** `claude_docs/log/<jahr>-
-<monat>.md` ist unser Ersatz für einen Git Context Controller — jede
+W<kalenderwoche>.md` (z. B. `2026-W38.md`, ISO-Wochennummer) ist unser
+Ersatz für einen Git Context Controller — jede
 Session, die etwas architekturrelevantes ändert (auch: Guardrails
 korrigiert, ein Repo repariert, eine Recherche mit Ergebnis
 abgeschlossen), schreibt vor Sitzungsende einen kurzen Eintrag dort
