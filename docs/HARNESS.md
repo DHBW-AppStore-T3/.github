@@ -313,14 +313,36 @@ für einen Agenten. Das ist der Punkt, an dem "wer darf mit dem Agenten
 reden" und "was darf der Agent tun" zusammenlaufen, deshalb hier im
 Detail:
 
-**Wer darf mit einem Server-Agenten sprechen — SSH-only, kein
-Netzwerk-Endpoint.** Kein Chat-Bot, kein Web-Interface, kein
-zusätzlicher Dienst mit eigener Angriffsfläche. Zugriff ist exakt
-deckungsgleich mit GitHub-Org-Mitgliedschaft plus hinterlegtem
-Public Key — wer nicht in der Org ist, kommt nicht auf den Server,
-unabhängig davon, ob dort ein Agent läuft oder nicht. Das beantwortet
-"nur wir, keine Externen" vollständig, ohne einen zusätzlichen
-Auth-Layer zu brauchen.
+**Wer darf mit einem Server-Agenten sprechen — SSH war der erste
+Entwurf, Discord ist die bewusste Revision.** Diese Datei legte
+zunächst fest: kein Chat-Bot, kein Web-Interface, kein zusätzlicher
+Dienst mit eigener Angriffsfläche, Zugriff exakt deckungsgleich mit
+GitHub-Org-Mitgliedschaft plus hinterlegtem Public Key. Das beantwortet
+"nur wir, keine Externen" ohne einen zusätzlichen Auth-Layer — und
+gilt unverändert für alles, was diesen Server sonst betrifft
+(Deployment, Diagnose per Hand).
+
+Für den Agenten selbst wurde das revidiert: **Discord ist der
+tatsächliche Kommunikationsweg des Teams**, SSH ist es nicht. Ein
+Chat-Interface, das niemand benutzt, ist keine Sicherheit, nur
+Reibung. Die Regel ist deshalb nicht mehr "kein Netzwerk-Endpoint",
+sondern **"ein Netzwerk-Endpoint mit einer echten Allowlist, kein
+offener"**:
+
+- `DISCORD_ALLOWED_USERS` (Discord-User-IDs, kommagetrennt) ist die
+  tatsächliche Zugriffsgrenze — jede Nachricht durchläuft diese Prüfung,
+  bevor sie überhaupt zur Session wird.
+- Der Bot selbst bleibt auf Discord-Seite **"Public Bot: OFF"** —
+  einladbar nur über eine manuell konstruierte URL, nicht über den
+  öffentlichen Discord-Installations-Flow. Das ist die zweite Hälfte
+  der Grenze: selbst wer die Allowlist umgehen wollte, kann den Bot
+  gar nicht erst in einen fremden Server einladen.
+- Start-Allowlist: nur der Betreiber selbst (Stand
+  Ersteinrichtung), weitere Org-Mitglieder werden einzeln über ihre
+  Discord-User-ID ergänzt, nicht pauschal für "jeder in der Org"
+  geöffnet.
+- SSH bleibt parallel bestehen — Discord ersetzt es nicht, es ist ein
+  zusätzlicher, aber ebenso begrenzter Kanal zum selben Agenten.
 
 **Was der Agent auf dem Server darf — eigener User, aber ehrlich
 begrenzt.** Zielzustand: ein `claude-agent`-Systemuser, Mitglied der
@@ -517,10 +539,13 @@ wieder aufgemacht werden muss:
 
 - **Eigener `appstore-ops`-MCP-Server.** Zu viel Bau- und
   Wartungsaufwand gegenüber den drei bestehenden MCPs in System 2.
-- **Chat-/Web-Endpoint für den Server-Agenten** (z. B. Slack-Bot,
-  Keycloak-gesichertes Web-UI). SSH-only deckt die Zugriffsfrage
-  bereits vollständig ab; ein zusätzlicher Dienst wäre nur zusätzliche
-  Angriffsfläche ohne zusätzlichen Nutzen.
+- **~~Chat-/Web-Endpoint für den Server-Agenten~~ — revidiert, siehe
+  3.2.** Diese Ablehnung galt bis zur Discord-Integration: Discord ist
+  der tatsächliche Kommunikationsweg des Teams, SSH ist es nicht, und
+  ein Kanal mit echter User-Allowlist plus einem nicht öffentlich
+  auffindbaren Bot ist kein offener Endpunkt. Weiterhin abgelehnt:
+  ein Web-UI (Keycloak-gesichert oder sonst) — dafür gibt es keinen
+  vergleichbaren Bedarf, Discord deckt den Anwendungsfall bereits ab.
 - **Alternative Agent-Runtime auf dem Server** (z. B. ein
   Open-Weights-Modell wie Nous Hermes statt Claude Code, wegen
   potenzieller Lernfähigkeit/Fine-Tuning über Zeit). Reine
