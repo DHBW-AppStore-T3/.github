@@ -220,6 +220,56 @@ in einer früheren Fassung dieses Dokuments skizziert. Die drei
 bestehenden MCPs oben decken denselben Bedarf ab, ohne dass wir Server
 und Sicherheitsgrenzen selbst bauen und pflegen müssten.
 
+### 2.1 `podman-mcp` — drei echte Bugs beim ersten Deploy gefunden
+
+Der erste tatsächliche Rollout von `podman-mcp` auf
+`appstore-prod-01` (nicht nur `docker compose config`, sondern ein
+echter Container-Start) hat drei unabhängige Probleme aufgedeckt, die
+keine reine Config-Prüfung gefunden hätte:
+
+1. **`quay.io/manusa/podman-mcp-server` existiert nicht.** Das Projekt
+   veröffentlicht überhaupt kein Container-Image — nur npm-/PyPI-
+   Wrapper und rohe GitHub-Release-Binaries (verifiziert gegen die
+   eigenen `.github/workflows/`: kein Docker-Push-Schritt irgendwo).
+   Fix: eigenes, minimales Dockerfile
+   (`deployment/agent/podman-mcp.Dockerfile`), das das offizielle
+   `linux-amd64`-Release-Binary lädt.
+2. **Die `cli`-Implementierung sucht nur nach `podman`, nie nach
+   `docker`** — trotz `AGENTS.md`, die behauptet "available when
+   podman or docker binary is in PATH". Die `api`-Implementierung
+   spricht das Podman-REST-Protokoll, das mit der Docker Engine API
+   nicht kompatibel ist, würde aber trotzdem ausgewählt (`Available()`
+   pingt den Docker-Socket nur, ohne das Protokoll zu prüfen). Fix:
+   `podman` im Image auf `docker` symlinken, `--podman-impl cli`
+   erzwingen, damit die Auto-Erkennung nicht in die kaputte
+   `api`-Variante läuft.
+3. **Der Prozess beendet sich sofort nach dem Start**, obwohl der
+   HTTP-Server im Hintergrund läuft — `cmd.Execute()` blockiert
+   unbedingt auf `ServeStdio(ctx)` im Hauptthread, auch im
+   `--port`-Modus. Ohne offenes Stdin bekommt das sofort EOF, der
+   Hauptthread kehrt zurück, der Container stirbt mit ihm — ein
+   stiller Neustart-Loop ohne Fehlermeldung im Log. Fix:
+   `stdin_open: true` auf dem Service.
+
+**Vierte, kleinere Beobachtung:** Hermes selbst versucht die
+MCP-Verbindung nur beim eigenen Start und "parkt" den Server nach drei
+gescheiterten Versuchen, statt automatisch weiter zu retryen — startet
+`podman-mcp` also *nach* `hermes-agent` (oder crasht es zuerst wie
+hier), bleibt die MCP-Verbindung tot, bis `hermes-agent` manuell neu
+gestartet wird. `depends_on: podman-mcp` in
+`docker-compose.agent.yml` reicht dafür nicht, weil Compose damit nur
+die Start-*Reihenfolge* ordnet, nicht auf einen erfolgreichen
+Healthcheck wartet. Verifiziert: nach `docker restart hermes-agent-prod`
+— einmal, nachdem `podman-mcp` stabil lief — verband sich Hermes
+sofort ohne weiteren Fehler.
+
+**Warum das hier steht statt nur im PR:** Das nächste MCP, das an
+diesen Harness angebunden wird (`github-mcp-server`,
+`openstack-mcp`), sollte denselben Fehler nicht wiederholen — bei
+einem fertigen Docker-Image "wird schon existieren" annehmen, oder
+`docker compose config` als ausreichenden Test ansehen. Ein realer
+Deploy-Versuch ist Pflicht, keine Kür.
+
 ---
 
 ## 3. Zugriff & Guardrails — durchgesetzt, nicht dokumentiert
