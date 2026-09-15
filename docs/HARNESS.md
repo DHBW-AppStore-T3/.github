@@ -233,14 +233,27 @@ den Agenten) mehr, als er für seine Aufgabe braucht?**
 | Einstellung | Zustand | Bewertung |
 |---|---|---|
 | `default_repository_permission` | `write` | ✅ gesetzt — alle 6 Mitglieder pushen in alle 6 Repos ohne Einzel-Einladung |
-| Branch-Protection auf `main` | fehlt in **allen sechs Repos** | 🔴 größte Lücke — macht jeden Pre-Merge-CI-Check wirkungslos, weil ein Direct-Push ihn umgeht |
+| Branch-Protection auf `main` | gesetzt in **allen sechs Repos** | ✅ PR-Pflicht, kein Force-Push, keine Branch-Löschung überall; Required-Status-Checks siehe unten |
 | `members_can_delete_repositories` | `true`, über API nicht abschaltbar | 🔴 bekannte, nicht behebbare Plan-Einschränkung (PATCH gibt `200 OK`, Wert bleibt) |
 | `members_can_change_repo_visibility` | `true`, gleiche Einschränkung | 🔴 dito |
 
-Zielzustand für Branch-Protection (sobald umgesetzt): Pull Request
-vor Merge auf `main` in allen sechs Repos, mindestens ein
-Required-Status-Check (`ci.yml` bzw. `secret-scan.yml` +
-`staging.yml` bei `deployment`), kein Force-Push auf `main`.
+**Required-Status-Checks pro Repo** — nur Jobs, die tatsächlich auf
+einem PR laufen (Build/Push/Deploy-Jobs mit
+`if: github.event_name == 'push'` laufen nie auf PRs und wurden
+deshalb bewusst *nicht* als Required-Check eingetragen, sonst würde
+jeder PR ewig blockieren):
+
+| Repo | Required Checks |
+|---|---|
+| `backend` | 🔍 Lint, 🧪 Test (unit), 🧪 Test (integration), 🔒 Security, 🐳 Build, 🔒 Image Scan |
+| `frontend` | 📐 Type Check, 🧪 Test, 🔒 Security, 🐳 Build, 🔒 Image Scan |
+| `worker` | 🔍 Lint, 🧪 Test (unit), 🧪 Test (integration), 🔒 Security, 🐳 Build, 🔒 Image Scan |
+| `deployment` | 🔒 Gitleaks (Secret-Scan; `staging.yml` hat keinen `pull_request`-Trigger, kann kein Required-Check sein) |
+| `moodle_appstore`, `self-service-ui` | keine — externe Fork-CI, Job-Namen/Verhalten nicht verifiziert, deshalb nur PR-Pflicht ohne Required-Check |
+
+Approval-Anzahl ist aktuell `0` (kein zweites Augenpaar erzwungen) —
+bewusst niedrig gehalten, weil das Team klein ist; kann später erhöht
+werden, sobald das im Alltag als zu locker auffällt.
 
 ### 3.2 Server (`appstore-prod-01`) — die eigentliche Governance-Frage
 
@@ -349,7 +362,7 @@ Anforderung spezifiziert
   ├─► Pull Request öffnen
   │
   ├─► CI-Gate (System 3.1)                             Lint + Test müssen grün sein
-  │     └─ 🔴 heute nicht erzwungen — Branch-Protection fehlt, siehe Status
+  │     └─ ✅ durchgesetzt — Required-Status-Checks in Branch-Protection
   │
   ├─► Merge auf main                                   ── MENSCHLICHE FREIGABE, siehe 5.2 ──
   │
@@ -406,7 +419,7 @@ Systemen, hier nur einmal explizit zusammengeführt:
 
 - **System 4** stellt sicher, dass neuer Code getestet ist, bevor er
   überhaupt einen PR erreicht.
-- **System 3.1** (sobald Branch-Protection steht) stellt sicher, dass
+- **System 3.1** (Branch-Protection, ✅ gesetzt) stellt sicher, dass
   kein Code ohne grüne CI auf `main` landet — unabhängig davon, ob ein
   Mensch oder ein Agent den Merge-Button drückt.
 - **System 1** (`claude_docs/decisions/` + `log/`) stellt sicher, dass
@@ -415,9 +428,9 @@ Systemen, hier nur einmal explizit zusammengeführt:
   vergangene Entscheidungen kennt, statt sie versehentlich rückgängig
   zu machen.
 
-Ohne Branch-Protection (Status: fehlt) ist der zweite Punkt aktuell
-nur eine Konvention, keine durchgesetzte Regel — das ist der Grund,
-warum sie weiterhin an erster Stelle der offenen Punkte steht.
+Der zweite Punkt ist damit eine durchgesetzte Regel, keine Konvention
+mehr — der Server-Zugang (System 3.2) ist jetzt der größte
+verbleibende Guardrail, siehe Statusabschnitt.
 
 ### 5.4 Der Agent als Deploy-Werkzeug, nicht nur als Zaungast
 
@@ -484,29 +497,27 @@ gemeinsame Historie mit dem Template.
 
 ---
 
-## Status (Stand 2026-09-15)
+## Status (Stand 2026-09-15, Branch-Protection nachgezogen)
 
 | System | Status |
 |---|---|
 | 1 · Wissen | offen — kein geschachteltes `claude_docs/` in irgendeinem Repo; nur `worker/graphify-out/` existiert, kein Cross-Repo-Graph, `.gitattributes` mit Merge-Driver liegt lokal vor, aber uncommitted |
 | 2 · Deployment-Ops-Skills | offen — keiner der drei MCPs (github, podman, openstack) ist angebunden, keine Skills geschrieben |
-| 3 · Zugriff & Guardrails | teilweise — Org-Write-Zugriff ✅ gesetzt; Branch-Protection fehlt überall; Server-Zugang nur über geteilten `ubuntu`+Sudo-User, kein `claude-agent`-User, keine PreToolUse-Hooks |
+| 3 · Zugriff & Guardrails | teilweise — Org-Write-Zugriff ✅, **Branch-Protection ✅ in allen sechs Repos gesetzt** (3.1); Server-Zugang (3.2) nach wie vor nur über geteilten `ubuntu`+Sudo-User, kein `claude-agent`-User, keine PreToolUse-Hooks |
 | 4 · Engineering-Loop | offen — ECC-Grundgerüst nicht eingezogen, Superpowers nicht evaluiert, kein `/tdd`-Skill |
-| 5 · Autonomer Feature-Loop | offen — Kette existiert bereits teilweise (Staging-Auto-Deploy bei Push auf `main` läuft schon), aber ohne Systeme 1–4 hat der Agent weder die Werkzeuge noch die Guardrails, um den Loop tatsächlich selbst zu durchlaufen |
+| 5 · Autonomer Feature-Loop | offen — Merge-Freigabepunkt (5.2) ist jetzt real durchgesetzt statt nur Konvention; Staging-Auto-Deploy läuft bereits; ohne Systeme 1, 2, 4 fehlen dem Agenten aber weiterhin die Werkzeuge, um den Loop selbst zu durchlaufen |
 
-**Die vier größten offenen Punkte, in Reihenfolge:**
+**Die drei größten verbleibenden offenen Punkte, in Reihenfolge:**
 
-1. **Branch-Protection auf `main`** in allen sechs Repos — ohne das
-   ist der Merge-Freigabepunkt aus System 5.2 wirkungslos.
-2. **`claude-agent`-User + PreToolUse-Hooks auf `appstore-prod-01`** —
+1. **`claude-agent`-User + PreToolUse-Hooks auf `appstore-prod-01`** —
    Voraussetzung sowohl für sichere Diagnose (System 3.2) als auch für
-   agentengestützte Deploy-Ausführung (System 5.4).
-3. **Die drei Deployment-Ops-MCPs anbinden** (github, podman,
+   agentengestützte Deploy-Ausführung (System 5.4). Jetzt der größte
+   verbleibende Guardrail, seit Branch-Protection steht.
+2. **Die drei Deployment-Ops-MCPs anbinden** (github, podman,
    openstack) und die ersten Skills (`/diagnose-production`,
    `/deploy-status`, `/restart-service`) schreiben.
-4. **Den `/ship-feature`-artigen Loop-Skill schreiben** (System 5.1),
-   der die ersten drei Punkte tatsächlich zu einer Kette verbindet —
-   ergibt ohne 1–3 keinen Sinn, deshalb bewusst an vierter Stelle.
+3. **Den `/ship-feature`-artigen Loop-Skill schreiben** (System 5.1),
+   der Systeme 1, 2 und 4 tatsächlich zu einer Kette verbindet.
 
 **Bekannte, nicht behebbare Lücke:** `members_can_delete_repositories`
 / `members_can_change_repo_visibility` lassen sich über die GitHub-API

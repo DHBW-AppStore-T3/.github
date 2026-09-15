@@ -167,15 +167,18 @@ schreiben, der fehlschlägt → minimal implementieren → Test grün →
 refactoren → volle Suite laufen lassen, bevor du den Agenten etwas als
 "fertig" melden lässt.
 
-## 6. Guardrails, die du kennen solltest (auch ohne dass sie technisch erzwungen sind)
+## 6. Guardrails
 
-Diese sind laut `HARNESS.md`-Statusabschnitt noch **nicht** durch Hooks
-oder Branch-Protection erzwungen — bis das nachgezogen ist, gilt als
-Team-Konvention:
+**Durchgesetzt, nicht nur Konvention:** Branch-Protection auf `main`
+ist in allen sechs Repos aktiv — Direct-Push ist technisch blockiert,
+ein PR ist Pflicht, und in backend/frontend/worker/deployment müssen
+die jeweiligen CI-Checks grün sein, bevor GitHub den Merge-Button
+überhaupt anbietet. Das heißt konkret: `git push origin main` schlägt
+fehl, du merkst es sofort, nicht erst im Nachhinein.
 
-- **Kein Direct-Push auf `main`** in irgendeinem der sechs Repos, auch
-  wenn GitHub es aktuell technisch zulässt. Immer über einen Branch +
-  Pull Request, auch wenn kein Review-Gate erzwungen wird.
+Was davon noch **nicht** technisch erzwungen ist (siehe
+`HARNESS.md`-Statusabschnitt), gilt weiterhin als Team-Konvention:
+
 - **Nie `docker compose -f docker-compose.prod.yml`** von deinem
   lokalen Rechner aus — Prod läuft ausschließlich über die
   Staging→Prod-Pipeline in `deployment/`.
