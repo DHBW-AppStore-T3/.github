@@ -238,6 +238,28 @@ jeden: `HARNESS.md` Abschnitt 2.
 Bis diese Skills existieren: Diagnose läuft über manuelles
 `ssh appstore-vm "docker compose logs ..."`, nie über direktes `sudo`.
 
+## 9. Der End-to-End-Loop, sobald alles steht
+
+`HARNESS.md` Abschnitt 5 beschreibt die volle Kette: Spezifikation →
+Branch → TDD-Loop → PR → CI-Gate → **Merge (Mensch bestätigt)** →
+automatischer Staging-Deploy → Verifikation → **Prod-Promotion
+(Mensch bestätigt)**. Zwei Dinge davon laufen schon heute, unabhängig
+vom Rest dieses Dokuments:
+
+- **Staging deployed bereits automatisch** bei jedem Push auf `main`
+  (`deployment/.github/workflows/staging.yml`) — das ist keine neue
+  Automatisierung, sondern längst produktiv.
+- **Prod hat keinen Auto-Trigger** — es existiert kein Workflow, der
+  bei einem Push automatisch nach Prod deployed. Das bleibt so.
+
+Was noch fehlt, ist nicht die Deploy-Automatisierung selbst, sondern
+die Werkzeuge drumherum (Systeme 1–4), die einen Agenten befähigen,
+diese Kette eigenständig bis zur Staging-Verifikation zu durchlaufen,
+statt dass ein Mensch jeden Schritt einzeln anstößt. Bis dahin bleibt
+der komplette Loop manuell — dieses Dokument ändert daran nichts, es
+beschreibt nur, wohin die einzelnen Setup-Schritte 1–8 zusammenlaufen
+sollen.
+
 ## Wenn etwas an diesem Setup schon wieder veraltet ist
 
 `HARNESS.md` hat einen Statusabschnitt mit Datum. Wenn du hier etwas

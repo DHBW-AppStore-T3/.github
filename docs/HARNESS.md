@@ -329,6 +329,123 @@ melden. CI-Stand heute: `ci.yml` in backend/frontend/worker
 
 ---
 
+## 5. Autonomer Feature-Loop — die Kette, nicht nur die Teile
+
+Die Systeme 1–4 sind Fähigkeiten. Dieses System ist die **Verkettung**:
+was tatsächlich passiert, nachdem eine Anforderung spezifiziert wurde,
+bis sie geprüft im Einsatz ist — und an welchen Stellen ein Mensch
+zwingend bestehen muss, statt dass der Agent einfach weiterläuft.
+
+### 5.1 Der Loop
+
+```
+Anforderung spezifiziert
+  │
+  ├─► Branch anlegen                                  [System 1: claude_docs/ lesen — Kontext, Grenzen, bekannte Fallstricke]
+  │
+  ├─► TDD-Loop (System 4)                              Test rot → Implementierung → grün → Refactor
+  │     └─ bei Unklarheit: Graphify-Query (System 1)   statt Vermutung über Code-Struktur
+  │
+  ├─► Pull Request öffnen
+  │
+  ├─► CI-Gate (System 3.1)                             Lint + Test müssen grün sein
+  │     └─ 🔴 heute nicht erzwungen — Branch-Protection fehlt, siehe Status
+  │
+  ├─► Merge auf main                                   ── MENSCHLICHE FREIGABE, siehe 5.2 ──
+  │
+  ├─► Staging-Deploy — AUTOMATISCH                     bereits heute so: deployment/staging.yml
+  │     triggert bei push auf main                      läuft bei jedem Merge, kein Zutun nötig
+  │
+  ├─► Verifikation auf Staging (System 2)               /diagnose-production gegen Staging,
+  │                                                      nicht nur gegen Prod
+  │
+  └─► Prod-Promotion                                   ── MENSCHLICHE FREIGABE, siehe 5.2 ──
+        kein automatischer Trigger vorhanden
+        (kein prod.yml mit push-Trigger existiert —
+         das ist heute schon so, nicht neu eingeführt)
+```
+
+Der Agent kann diesen Loop **selbstständig durchlaufen** von der
+Spezifikation bis zur Staging-Verifikation. Die Kette bricht nicht,
+weil ihm ein Werkzeug fehlt, sondern an zwei bewusst gesetzten
+Freigabepunkten.
+
+### 5.2 Wo ein Mensch bestehen muss, und warum genau dort
+
+**Vor dem Merge auf `main`.** Nicht weil der TDD-Loop dem Agenten
+nicht zugetraut wird, sondern weil der Merge der Punkt ist, an dem
+Staging *automatisch* deployed (5.1) — ein Fehler hier pflanzt sich
+ohne weiteres Zutun fort. Ein Mensch bestätigt den PR, danach läuft
+alles bis Staging von selbst.
+
+**Vor der Prod-Promotion.** Staging-Verifikation durch den Agenten
+(System 2) ersetzt keine menschliche Prüfung, weil `appstore-prod-01`
+ein Live-System mit eingeschriebenem Nutzerzustand ist (Keycloak-Realm,
+laufende Deployments Dritter) — ein Rollback auf Staging kostet
+nichts, auf Prod kostet er echte Nutzungsunterbrechung.
+
+**Nicht an weiteren Stellen.** Insbesondere nicht vor dem PR-Öffnen
+und nicht vor dem CI-Gate selbst — beides sind reversible, risikofreie
+Schritte, ein Mensch dort einzubinden würde nur Latenz ohne
+Sicherheitsgewinn hinzufügen. Genau diese Beschränkung auf zwei
+Stellen ist der Unterschied zwischen "Agent arbeitet zu" und "Agent
+läuft eigenständig los" — jede zusätzliche Freigabestufe wäre wieder
+Handarbeit unter neuem Namen.
+
+**Alembic-Migrationen sind ein Sonderfall innerhalb dieser Kette:**
+selbst wenn CI grün ist und ein Mensch den Merge freigegeben hat, läuft
+eine Schema-Migration gegen eine geteilte Datenbank (staging oder prod)
+nie ohne zusätzliche, migration-spezifische Bestätigung im selben
+Moment — das steht bereits in System 3, gilt hier unverändert weiter.
+
+### 5.3 Was das für "ohne Degradierung der Codebasis" konkret heißt
+
+Die Anforderung, dass die Codebasis dabei nicht degradiert, ist keine
+zusätzliche Regel, sondern die Summe von drei bereits bestehenden
+Systemen, hier nur einmal explizit zusammengeführt:
+
+- **System 4** stellt sicher, dass neuer Code getestet ist, bevor er
+  überhaupt einen PR erreicht.
+- **System 3.1** (sobald Branch-Protection steht) stellt sicher, dass
+  kein Code ohne grüne CI auf `main` landet — unabhängig davon, ob ein
+  Mensch oder ein Agent den Merge-Button drückt.
+- **System 1** (`claude_docs/decisions/` + `log/`) stellt sicher, dass
+  der nächste Durchlauf des Loops — egal ob derselbe Agent in einer
+  neuen Session oder ein anderes Teammitglied — den Grund für
+  vergangene Entscheidungen kennt, statt sie versehentlich rückgängig
+  zu machen.
+
+Ohne Branch-Protection (Status: fehlt) ist der zweite Punkt aktuell
+nur eine Konvention, keine durchgesetzte Regel — das ist der Grund,
+warum sie weiterhin an erster Stelle der offenen Punkte steht.
+
+### 5.4 Der Agent als Deploy-Werkzeug, nicht nur als Zaungast
+
+Bisher lief der gesamte Deploy-Teil der Kette (Staging automatisch,
+Prod manuell) ausschließlich über GitHub Actions — der Agent
+beobachtet nur (System 2: `/deploy-status`, `/diagnose-production`).
+Der `claude-agent`-SSH-Zugang aus System 3.2 ist aber genau das
+Werkzeug, das diese Rolle erweitert: **nach** einer menschlichen
+Freigabe kann der Agent selbst auf `appstore-prod-01` aktiv werden,
+statt dass ein Mensch die letzte Meile händisch nachvollzieht:
+
+- Staging-Verifikation direkt gegen die laufenden Container statt nur
+  gegen CI-Logs (`ssh` + Allowlist-Befehle aus System 3.2).
+- Nach expliziter Prod-Freigabe: den eigentlichen Rollout-Schritt
+  ausführen (z. B. Compose-Pull + Restart über die feste Allowlist),
+  statt dass diese Aktion nur manuell am Server passiert.
+
+**Das verschiebt nicht die Freigabegrenze aus 5.2** — der Mensch gibt
+weiterhin frei, *bevor* irgendeine Prod-Aktion stattfindet. Es
+verschiebt nur, *wer die Tasten drückt*, nachdem freigegeben wurde:
+statt eines Menschen mit vollem `ubuntu`+Sudo-Zugang übernimmt der
+`claude-agent`-User mit der PreToolUse-Allowlist aus System 3.2 die
+Ausführung — was tendenziell sicherer ist als der heutige Zustand,
+weil die Allowlist enger ist als das, was ein Mensch mit Sudo-Zugriff
+tun könnte.
+
+---
+
 ## Bewusst nicht Teil des Harness
 
 Diese Punkte wurden geprüft und **abgelehnt** — nicht "später
@@ -375,16 +492,21 @@ gemeinsame Historie mit dem Template.
 | 2 · Deployment-Ops-Skills | offen — keiner der drei MCPs (github, podman, openstack) ist angebunden, keine Skills geschrieben |
 | 3 · Zugriff & Guardrails | teilweise — Org-Write-Zugriff ✅ gesetzt; Branch-Protection fehlt überall; Server-Zugang nur über geteilten `ubuntu`+Sudo-User, kein `claude-agent`-User, keine PreToolUse-Hooks |
 | 4 · Engineering-Loop | offen — ECC-Grundgerüst nicht eingezogen, Superpowers nicht evaluiert, kein `/tdd`-Skill |
+| 5 · Autonomer Feature-Loop | offen — Kette existiert bereits teilweise (Staging-Auto-Deploy bei Push auf `main` läuft schon), aber ohne Systeme 1–4 hat der Agent weder die Werkzeuge noch die Guardrails, um den Loop tatsächlich selbst zu durchlaufen |
 
-**Die drei größten offenen Punkte, in Reihenfolge:**
+**Die vier größten offenen Punkte, in Reihenfolge:**
 
-1. **Branch-Protection auf `main`** in allen sechs Repos.
+1. **Branch-Protection auf `main`** in allen sechs Repos — ohne das
+   ist der Merge-Freigabepunkt aus System 5.2 wirkungslos.
 2. **`claude-agent`-User + PreToolUse-Hooks auf `appstore-prod-01`** —
-   ohne beides zusammen ist der Server-Zugang für einen Agenten
-   effektiv unbegrenzt.
+   Voraussetzung sowohl für sichere Diagnose (System 3.2) als auch für
+   agentengestützte Deploy-Ausführung (System 5.4).
 3. **Die drei Deployment-Ops-MCPs anbinden** (github, podman,
    openstack) und die ersten Skills (`/diagnose-production`,
    `/deploy-status`, `/restart-service`) schreiben.
+4. **Den `/ship-feature`-artigen Loop-Skill schreiben** (System 5.1),
+   der die ersten drei Punkte tatsächlich zu einer Kette verbindet —
+   ergibt ohne 1–3 keinen Sinn, deshalb bewusst an vierter Stelle.
 
 **Bekannte, nicht behebbare Lücke:** `members_can_delete_repositories`
 / `members_can_change_repo_visibility` lassen sich über die GitHub-API
