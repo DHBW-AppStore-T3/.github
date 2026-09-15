@@ -3,8 +3,7 @@
 Wie Claude Code in der `DHBW-AppStore-T3`-Organisation aufgesetzt ist,
 und warum. Die Setup-Anleitung dazu steht in
 [`GET_STARTED_WITH_HARNESS.md`](GET_STARTED_WITH_HARNESS.md); eine
-visuelle Fassung als [Claude-Artifact](https://claude.ai/code/artifact/8dd27aed-ef44-4cbd-bd81-bb3874e89af2)
-(wird nach dieser Überarbeitung aktualisiert).
+visuelle Fassung als [Claude-Artifact](https://claude.ai/code/artifact/8dd27aed-ef44-4cbd-bd81-bb3874e89af2).
 
 ## Der Rahmen: sechs Repos, eine laufende Prod-VM
 
@@ -20,141 +19,335 @@ gemeinsamen GitHub-Org, kein Monorepo:
 | [`moodle_appstore`](https://github.com/DHBW-AppStore-T3/moodle_appstore) | Moodle-Fork | LTI-Integrationsziel |
 | [`self-service-ui`](https://github.com/DHBW-AppStore-T3/self-service-ui) | Fork von [pfisterer/self-service-ui](https://github.com/pfisterer/self-service-ui) | Referenzimplementierung |
 
-Und es gibt bereits eine **echte Produktions-VM**: `appstore-prod-01`
-auf OpenStack, 10 Docker-Container (nginx, frontend, backend, worker,
+Und es gibt eine **echte Produktions-VM**: `appstore-prod-01` auf
+OpenStack, 10 Docker-Container (nginx, frontend, backend, worker,
 keycloak, 2× postgres, rabbitmq, redis, tfstate-postgres), Uptime im
-Wochenbereich. Das ist kein Zielbild mehr — der Harness muss ab jetzt
-mit einem scharfen Produktivsystem rechnen, nicht mit einer
-hypothetischen zukünftigen VM.
+Wochenbereich. Jede Entscheidung unten gilt gegen dieses scharfe
+System, nicht gegen ein Zielbild.
 
-Das ändert, wie dieses Dokument aufgebaut ist: statt zehn einzelnen
-Bausteinen gibt es **vier Systeme**. Jedes davon ist entweder ein
-Tool, das etwas tatsächlich kann, oder eine durchgesetzte Regel — keine
-Markdown-Datei, die nur beschreibt, was jemand tun sollte.
+Vier Systeme, jedes entweder ein Tool, das etwas tatsächlich tut, oder
+eine durchgesetzte Regel — keine Markdown-Datei, die nur beschreibt,
+was jemand tun sollte.
 
-## Die vier Systeme
+---
 
-### 1. Wissen — wie der Agent das Projekt versteht
+## 1. Wissen — wie der Agent das Projekt versteht
 
-Zwei Dinge, beide repo-lokal, beide committet:
+Zwei Werkzeuge, beide repo-lokal, beide committet.
 
-- **`claude_docs/`** pro Repo (`architecture.md`, `decisions.md`,
-  `debugging.md`; bei `deployment`: `topology.md` + `rollback.md`
-  statt `debugging.md`, weil es dort keinen Code, sondern eine feste
-  Hochfahr-Reihenfolge gibt — Caddy → Keycloak → backend → worker →
-  frontend). Jedes root-`CLAUDE.md` bleibt dünn und verlinkt nur
-  hierher.
-- **Graphify** pro Repo (`worker/graphify-out/` existiert bereits als
-  Referenz). Zeigt Struktur *innerhalb* eines Repos. Was ein Graph
-  nicht zeigen kann — wie backend, frontend und worker über
-  REST-Endpunkte und Celery-Task-Namen zusammenhängen — muss explizit
-  in `claude_docs/architecture.md` stehen.
+### 1.1 `claude_docs/` — tief geschachtelt, mit eingebautem Log
 
-**Warum als ein System zusammengefasst:** beides beantwortet dieselbe
-Frage ("was muss der Agent über *dieses* Repo wissen, bevor er etwas
-anfasst") mit unterschiedlicher Granularität — Graphify für Struktur,
-`claude_docs/` für Kontext und Entscheidungen, die kein Graph zeigen
-kann.
+Ein flaches `claude_docs/architecture.md` reicht bei einem
+FastAPI-Backend mit Alembic-Migrationen, Celery-Aufrufen und
+Keycloak-Auth nicht — die Themen sind zu verschieden, um in einer
+Datei nebeneinanderzustehen, ohne dass sie beim Lesen ineinander
+verschwimmen. Struktur pro Repo-Typ:
 
-### 2. Deployment-Ops — das eine große fehlende Tool
+**`backend/claude_docs/`**
+```
+claude_docs/
+├── architecture/
+│   ├── overview.md        # Module, Layering, Request-Flow
+│   ├── database.md        # Schema, Alembic-Migrationsstrategie
+│   ├── auth.md            # Keycloak-Integration, Token-Flow
+│   └── api-contracts.md   # welche Endpunkte frontend/worker konsumieren
+├── decisions/
+│   ├── 2026-03-fastapi-vs-django.md
+│   └── ...                # ein Eintrag pro architektur-relevanter Entscheidung
+├── debugging/
+│   ├── common-errors.md
+│   └── local-setup-gotchas.md
+└── log/
+    └── 2026-09.md          # laufendes Änderungsprotokoll, siehe 1.2
+```
 
-Das ist der Baustein mit dem größten Hebel und dem größten Risiko,
-weil er direkt gegen `appstore-prod-01` wirkt. Bisher war das über vier
-Punkte verteilt (Server Claude, Remote Execution, Observability,
-OpenStack-Zugriff) — das bündelt sich zu **einem MCP-Server**, den ein
-Agent (egal ob lokal oder auf dem Server selbst) anspricht:
+**`worker/claude_docs/`** — gleiches Muster, aber `architecture/`
+verschiebt sich auf das, was dort tatsächlich komplex ist:
+```
+architecture/
+├── overview.md
+├── task-contracts.md       # Celery-Task-Namen + Payload-Schema, das backend aufruft
+├── queues.md                # RabbitMQ-Routing, Retry-Verhalten
+└── sse-streaming.md         # Redis-Pub/Sub → Server-Sent-Events ans Frontend
+```
+
+**`frontend/claude_docs/`**
+```
+architecture/
+├── overview.md
+├── state.md                 # Pinia-Stores, welcher State wo lebt
+├── api-client.md             # Axios-Setup, wie Backend-Fehler gemapped werden
+└── routing.md
+```
+
+**`deployment/claude_docs/`** — kein Code zum Debuggen, sondern
+Dienste in fester Reihenfolge, deshalb andere Unterordner:
+```
+claude_docs/
+├── topology/
+│   ├── environments.md      # dev / staging / prod, was sie unterscheidet
+│   ├── boot-order.md        # Caddy → Keycloak → backend → worker → frontend
+│   └── networking.md        # welcher Dienst spricht mit welchem, welche Ports
+├── decisions/
+├── rollback/
+│   ├── database.md           # Alembic-Downgrade-Pfad
+│   └── service.md            # einzelnen Container zurückrollen
+└── log/
+```
+
+`moodle_appstore` und `self-service-ui` bekommen vorerst nur ein
+flaches `claude_docs/` (architecture.md, decisions.md) — sie sind
+Referenz-/Integrationsrepos, keine aktiv weiterentwickelten
+Kernservices; das wird nachgezogen, sobald sich das ändert.
+
+Jedes root-`CLAUDE.md` bleibt dünn und verlinkt nur in die passenden
+Unterordner statt Inhalte zu duplizieren.
+
+### 1.2 `claude_docs/log/` — der GCC-Ersatz
+
+Statt eines Git Context Controllers, der Commit-Historie nachträglich
+strukturiert: **jede Session, die etwas architekturrelevantes ändert,
+schreibt einen Eintrag in `claude_docs/log/<jahr>-<monat>.md`**, bevor
+sie endet. Ein Eintrag ist kurz — Datum, was sich geändert hat, warum,
+was der Stand am Ende war:
+
+```markdown
+### 2026-09-15 — CORS_ORIGINS Fix gemerged, Remotes auf T3 korrigiert
+Lokale Remotes zeigten auf die falsche, gleichnamige Org
+(DHBW-AppStore statt DHBW-AppStore-T3). Divergenz gemerged (1 Commit
+von T3, 30 von hier), auf T3 gepusht, alle vier Remotes umgebogen.
+Stand danach: alle Repos zeigen korrekt auf DHBW-AppStore-T3.
+```
+
+Das löst dasselbe Problem, das GCC lösen würde — Kontext über Sessions
+hinweg, ohne dass jemand die Git-Historie durchforsten muss — aber
+ohne ein zusätzliches Tool: es ist nur Disziplin plus eine
+Ordnerkonvention. Der Unterschied zu `decisions/`: `log/` ist
+chronologisch und auch für kleinere, nicht architekturrelevante
+Ereignisse gedacht (Repo-Reparaturen, Guardrail-Änderungen,
+Recherche-Ergebnisse); `decisions/` ist thematisch und nur für Dinge,
+die eine spätere Entscheidung beeinflussen.
+
+### 1.3 Graphify — global über alle sechs Repos, nicht nur pro Repo
+
+Graphify unterstützt Cross-Repo-Graphen nativ (`merge-graphs`, jeder
+Node behält ein `repo`-Attribut). Zielstruktur:
+
+```
+# In jedem der sechs Repos: eigener, lokaler Graph
+backend/graphify-out/graph.json
+frontend/graphify-out/graph.json
+worker/graphify-out/graph.json
+deployment/graphify-out/graph.json
+moodle_appstore/graphify-out/graph.json
+self-service-ui/graphify-out/graph.json
+
+# Zentral: alle sechs zu einem Graphen gemerged
+.github/graphify-out/cross-repo-graph.json
+```
+
+**Aktualität bei jedem Push** — zwei Ebenen, damit es nicht bei jedem
+Push das volle LLM-gestützte Re-Extract kostet:
+
+1. Jedes Repo hat einen CI-Schritt (`push` auf `main`), der
+   `graphify update <path>` laufen lässt — das ist **kein LLM-Call**,
+   nur Re-Extraktion geänderter Dateien — und `graphify-out/graph.json`
+   committet.
+2. Ein Workflow in `.github/` (org-weites Doku-Repo, wo auch diese
+   Datei liegt) läuft auf ein Schedule (z. B. täglich, nicht pro Push)
+   und holt die aktuellen `graph.json` der sechs Repos via
+   `repository_dispatch` oder einfachem Checkout, führt
+   `graphify merge-graphs` aus und committet den zentralen
+   Cross-Repo-Graphen.
+3. Für den Merge-Konflikt-Fall (zwei Branches ändern `graph.json`
+   gleichzeitig) existiert bereits ein Git-Merge-Driver
+   (`graphify-out/graph.json merge=graphify` in `.gitattributes`,
+   aktuell nur lokal vorbereitet, noch nicht committet) — der
+   übernimmt das Zusammenführen ohne manuellen Konflikt-Fix.
+
+Damit ist "das große Ganze immer connected" ohne dass jeder Push einen
+teuren LLM-Rebuild aller sechs Repos auslöst — nur der betroffene
+Teilgraph wird pro Push aktualisiert, der Merge zum Gesamtbild läuft
+separat und günstig.
+
+---
+
+## 2. Deployment-Ops — Skills statt eigenem MCP
+
+Kein selbst gebautes MCP — der Aufwand steht in keinem Verhältnis zum
+Nutzen, wenn es fertige Bausteine gibt. Stattdessen: eine Sammlung von
+Skill-Markdown-Dateien, die Schritt für Schritt beschreiben, welche
+Befehle in welcher Reihenfolge laufen — angedockt an zwei bestehende,
+etablierte MCP-Server statt an rohes Bash/SSH:
+
+| MCP | Zweck | Warum dieser |
+|---|---|---|
+| [`github/github-mcp-server`](https://github.com/github/github-mcp-server) | Deployment-Status, letzte Workflow-Runs, Commit-Historie, PR-Status | offizieller GitHub-MCP, deckt System 3 (Guardrails) und Deployment-Diagnose gleichzeitig ab |
+| [`manusa/podman-mcp-server`](https://github.com/manusa/podman-mcp-server) | Container-Status, Logs, gezielte Restarts | fokussiert auf Container-Runtimes (Docker + Podman), keine überladene Cloud-CLI-Oberfläche |
+| [`avinas234/openstack-mcp`](https://github.com/avinas234/openstack-mcp) | 70+ **read-only** Tools für OpenStack (Server-Liste, Quotas, Volumes) | rein lesend konzipiert — passt zur Governance-Regel unten, keine schreibenden OpenStack-Aktionen über den Agenten |
+
+Die Skill-Ebene:
 
 ```
 Agent
   │
   ├── Skill: /diagnose-production
-  │       beschreibt die Reihenfolge: Health → Logs → letzte
-  │       Deployments → Metriken, nie andersrum
+  │       Ablauf: Health (podman-mcp) → Logs (podman-mcp) →
+  │       letzte Deployments (github-mcp) → OpenStack-Zustand
+  │       (openstack-mcp, nur wenn die ersten drei nichts erklären)
   │
-  └── MCP: appstore-ops
-          ├── get_health()               [lesend]
-          ├── get_logs(service)          [lesend]
-          ├── get_deployments()          [lesend]
-          ├── get_errors()               [lesend]
-          ├── restart_service(name)      [schreibend, Allowlist]
-          ├── openstack_server_list()    [lesend, OpenStack API]
-          ├── openstack_server_status()  [lesend, OpenStack API]
-          └── openstack_quota()          [lesend, OpenStack API]
+  ├── Skill: /deploy-status
+  │       liest github-mcp workflow runs + podman-mcp container health,
+  │       fasst zusammen ob staging/prod synchron mit main sind
+  │
+  └── Skill: /restart-service
+      einzige schreibende Aktion: ein Service-Restart über
+      podman-mcp, mit fester Namens-Allowlist (kein `down`, kein `rm`,
+      kein Compose-File-Wechsel)
 ```
 
-Der bisher fehlende Teil ist die OpenStack-Anbindung: aktuell gibt es
-keinen MCP/CLI-Zugriff auf die OpenStack-API selbst (Server-Liste,
-Quotas, Volume-Status) — nur auf das, was via SSH auf der VM sichtbar
-ist. Das MCP läuft gegen `clouds.yaml` (Layer aus dem alten Punkt ii)
-und ergänzt die Docker-Ebene um die Infrastruktur-Ebene darunter.
+Alle drei MCPs laufen mit denselben minimal-scoped Credentials wie der
+Rest des Harness (Layer aus System 3): der GitHub-MCP mit einem
+Token ohne `admin:org`, der OpenStack-MCP mit einer eigenen
+`clouds.yaml`, die nur Lese-Rollen hat, nicht der Admin-Projektzugang.
 
-**Wo dieses MCP laufen darf, ist eine Governance-Frage, kein
-Implementierungsdetail** — siehe nächster Abschnitt.
+**Bewusst nicht verfolgt:** ein eigener `appstore-ops`-MCP-Server, wie
+in einer früheren Fassung dieses Dokuments skizziert. Die drei
+bestehenden MCPs oben decken denselben Bedarf ab, ohne dass wir Server
+und Sicherheitsgrenzen selbst bauen und pflegen müssten.
 
-### 3. Zugriff & Guardrails — durchgesetzt, nicht dokumentiert
+---
 
-Ein System, zwei Ebenen: GitHub-Org-Ebene und Server-Ebene.
+## 3. Zugriff & Guardrails — durchgesetzt, nicht dokumentiert
 
-**GitHub-Org:**
-- `default_repository_permission: write` ist gesetzt — alle sechs
-  Mitglieder können in alle sechs Repos pushen.
-- Branch-Protection auf `main` fehlt in **allen sechs Repos** — das
-  ist aktuell der größte offene Guardrail, weil er alles andere
-  wirkungslos macht: ein Pre-Merge-CI-Check bringt nichts, wenn ein
-  Direct-Push ihn umgeht.
-- `members_can_delete_repositories` / `members_can_change_repo_visibility`
-  stehen auf `true` und lassen sich über die API auf diesem Plan nicht
-  abschalten (GitHub nimmt den PATCH mit `200 OK` an, ändert den Wert
-  aber nicht) — jedes Mitglied kann aktuell ein Repo löschen.
+Zwei Ebenen, ein System: GitHub-Org und Server. Die Kernfrage auf
+beiden Ebenen ist dieselbe — **kann ein Agent (oder ein Mensch über
+den Agenten) mehr, als er für seine Aufgabe braucht?**
 
-**Server (`appstore-prod-01`):**
-- Der einzige aktuell existierende Zugang ist der `ubuntu`-User mit
-  **passwortlosem Sudo** — dasselbe Login, mit dem sich auch ein
-  Mensch einloggt. Für einen Agenten ist das kein Zugang, den man
-  wiederverwenden sollte, selbst für reine Diagnose.
-- Geplanter Zielzustand: ein eigener, nicht-privilegierter
-  `claude-agent`-User, Mitglied der `docker`-Gruppe (nötig, um
-  `docker`-Befehle auszuführen), aber **ohne `sudo`**, mit eigenem
-  `ed25519`-Key statt des geteilten `ubuntu`-Keys.
-- **Wichtige Einschränkung, die nicht verschwiegen werden soll:**
-  Mitgliedschaft in der `docker`-Gruppe ist selbst schon
-  root-äquivalent (`docker run -v /:/host ...` gibt vollen
-  Host-Zugriff — das ist kein Konfigurationsfehler, sondern wie Docker
-  grundsätzlich funktioniert). Der eigene Linux-User trennt also nur
-  Audit-Spuren und verhindert versehentliche `sudo`-Nutzung — er ist
-  **keine echte Sandbox** gegen einen Agenten, der absichtlich oder
-  durch einen Fehler etwas Destruktives ausführt.
-- Die tatsächliche Grenze kommt deshalb nicht vom Linux-User, sondern
-  von **PreToolUse-Hooks auf Claude-Seite**: eine feste Allowlist an
-  `docker`-Unterbefehlen (`ps`, `logs`, `compose logs`, `compose
-  restart <name>`), alles andere wird geblockt, bevor es die Shell
-  erreicht. Das MCP aus System 2 spiegelt dieselbe Allowlist — beide
-  Ebenen zusammen sind der Guardrail, keine einzelne für sich.
+### 3.1 GitHub-Org
 
-Dazu kommen die klassischen Repo-Guardrails: CI muss vor Merge grün
-sein (nicht nur vorhanden — `ci.yml` existiert in backend/frontend/
-worker, `secret-scan.yml` + `staging.yml` in deployment, aber ohne
-Branch-Protection erzwingt das nichts), und Alembic-Migrationen
-brauchen immer explizite menschliche Bestätigung, nie automatisiert.
+| Einstellung | Zustand | Bewertung |
+|---|---|---|
+| `default_repository_permission` | `write` | ✅ gesetzt — alle 6 Mitglieder pushen in alle 6 Repos ohne Einzel-Einladung |
+| Branch-Protection auf `main` | fehlt in **allen sechs Repos** | 🔴 größte Lücke — macht jeden Pre-Merge-CI-Check wirkungslos, weil ein Direct-Push ihn umgeht |
+| `members_can_delete_repositories` | `true`, über API nicht abschaltbar | 🔴 bekannte, nicht behebbare Plan-Einschränkung (PATCH gibt `200 OK`, Wert bleibt) |
+| `members_can_change_repo_visibility` | `true`, gleiche Einschränkung | 🔴 dito |
 
-### 4. Engineering-Loop — wie Code entsteht und geprüft wird
+Zielzustand für Branch-Protection (sobald umgesetzt): Pull Request
+vor Merge auf `main` in allen sechs Repos, mindestens ein
+Required-Status-Check (`ci.yml` bzw. `secret-scan.yml` +
+`staging.yml` bei `deployment`), kein Force-Push auf `main`.
 
-- **Standards:** Everything Claude Code (ECC) als gemeinsamer Boden;
-  wo Python (Ruff) und TypeScript (Vite) unterschiedliche
-  Lint-Konventionen brauchen, stehen die Abweichungen in
-  `claude_docs/` des jeweiligen Repos.
-- **Verifikation:** ein Skill, der nach Sprache verzweigt — `pytest`
-  für backend/worker (Poetry-basiert), `vitest` für frontend. Der Loop
-  bleibt gleich: fehlschlagender Test → minimale Implementierung →
-  grün → Refactor → volle Suite → erst dann zurück an den Nutzer.
+### 3.2 Server (`appstore-prod-01`) — die eigentliche Governance-Frage
 
-## Bewusst nicht (jetzt) Teil des Harness
+Der heutige Zustand: der einzige SSH-Zugang ist der `ubuntu`-User mit
+**passwortlosem Sudo** — dasselbe Login für Menschen und (potenziell)
+für einen Agenten. Das ist der Punkt, an dem "wer darf mit dem Agenten
+reden" und "was darf der Agent tun" zusammenlaufen, deshalb hier im
+Detail:
 
-**Persistent Context (GCC):** würde Git-Historie als strukturierten
-Kontext über Sessions verwalten. Die Voraussetzung — echte
-Git-Repos — ist erfüllt, aber bei sechs Repos mit größtenteils kurzer
-Historie ist unklar, ob es Mehrwert bringt. Wird pro Repo einzeln
-evaluiert, nicht vorab org-weit eingeführt.
+**Wer darf mit einem Server-Agenten sprechen — SSH-only, kein
+Netzwerk-Endpoint.** Kein Chat-Bot, kein Web-Interface, kein
+zusätzlicher Dienst mit eigener Angriffsfläche. Zugriff ist exakt
+deckungsgleich mit GitHub-Org-Mitgliedschaft plus hinterlegtem
+Public Key — wer nicht in der Org ist, kommt nicht auf den Server,
+unabhängig davon, ob dort ein Agent läuft oder nicht. Das beantwortet
+"nur wir, keine Externen" vollständig, ohne einen zusätzlichen
+Auth-Layer zu brauchen.
+
+**Was der Agent auf dem Server darf — eigener User, aber ehrlich
+begrenzt.** Zielzustand: ein `claude-agent`-Systemuser, Mitglied der
+`docker`-Gruppe, ohne `sudo`, mit eigenem `ed25519`-Key statt des
+geteilten `ubuntu`-Keys.
+
+**Das reicht allein nicht als Sandbox, und das wird hier nicht
+verschwiegen:** Mitgliedschaft in der `docker`-Gruppe ist selbst
+root-äquivalent — `docker run -v /:/host ...` gibt vollen
+Host-Dateisystemzugriff, unabhängig vom Linux-User. Das ist kein
+Konfigurationsfehler, sondern wie Docker grundsätzlich funktioniert.
+Der eigene User trennt also Audit-Spuren (wessen Aktion war das) und
+verhindert versehentliche `sudo`-Nutzung, ist aber **keine Grenze
+gegen absichtlichen oder fehlerhaften destruktiven Einsatz**.
+
+Die tatsächliche Grenze sind **PreToolUse-Hooks auf Claude-Seite**:
+eine feste Allowlist erlaubter `docker`/`podman`-Unterbefehle (`ps`,
+`logs`, `compose logs`, `compose restart <name>` mit Namen aus einer
+festen Liste), alles andere wird geblockt, bevor es überhaupt die
+Shell erreicht. Die Skills aus System 2 (`/restart-service` etc.)
+spiegeln dieselbe Allowlist — Hook und Skill sind zwei Formulierungen
+derselben Grenze, nicht zwei unabhängige.
+
+**Nie unabhängig vom Menschen:** Alembic-Migrationen laufen nie
+automatisiert gegen staging/prod, egal welcher User sie ausführt —
+immer mit expliziter menschlicher Bestätigung im selben Moment.
+
+---
+
+## 4. Engineering-Loop — ECC und Superpowers im Detail
+
+Nicht "irgendein Regelwerk", sondern zwei konkrete, bestehende
+Skill-Quellen, plus was aus jeder davon tatsächlich übernommen wird.
+
+### 4.1 Everything Claude Code (ECC)
+
+Basis-Layout für `.claude/agents/`, `.claude/hooks/`, Rule-Struktur.
+Übernommen wird das Grundgerüst; wo Python (Ruff-Konventionen) und
+TypeScript (Vite/Vue-Konventionen) eigene Regeln brauchen, liegen die
+in `claude_docs/architecture/` des jeweiligen Repos, nicht in einer
+globalen Regel, die für beide Sprachen gleich sein müsste.
+
+### 4.2 Superpowers ([obra/superpowers](https://github.com/obra/superpowers))
+
+Community-Skill-Sammlung. Relevant für uns, konkret:
+
+- **Brainstorming-Skill** — für Architekturentscheidungen, bevor sie
+  in `claude_docs/decisions/` landen.
+- **TDD-/Verification-Skills** — Basis für den sprachspezifischen Loop
+  unten, statt ihn komplett neu zu schreiben.
+- **Debugging-Workflow-Skills** — Vorlage für die
+  `claude_docs/debugging/`-Einträge, damit sie alle demselben Muster
+  folgen (Symptom → Reproduktion → Ursache → Fix → wie man es beim
+  nächsten Mal schneller findet).
+
+Nicht übernommen: alles, was auf einen Einzel-Repo-Kontext ausgelegt
+ist und unsere Sechs-Repo-Struktur ignoriert (z. B. Skills, die von
+einem einzigen `CLAUDE.md` als Wissensquelle ausgehen).
+
+### 4.3 Verifikation
+
+Ein Skill, der nach Sprache verzweigt: `pytest` für backend/worker
+(Poetry-basiert), `vitest` für frontend. Loop: Test rot → minimal
+implementieren → grün → Refactor → volle Suite → erst dann als fertig
+melden. CI-Stand heute: `ci.yml` in backend/frontend/worker
+(Ruff-Lint + Pytest gegen Postgres-Service), `secret-scan.yml` +
+`staging.yml` in `deployment` — vorhanden, aber ohne Branch-Protection
+(Abschnitt 3.1) nicht Merge-Pflicht.
+
+---
+
+## Bewusst nicht Teil des Harness
+
+Diese Punkte wurden geprüft und **abgelehnt** — nicht "später
+vielleicht", sondern eine getroffene Entscheidung, damit sie nicht
+wieder aufgemacht werden muss:
+
+- **Eigener `appstore-ops`-MCP-Server.** Zu viel Bau- und
+  Wartungsaufwand gegenüber den drei bestehenden MCPs in System 2.
+- **Chat-/Web-Endpoint für den Server-Agenten** (z. B. Slack-Bot,
+  Keycloak-gesichertes Web-UI). SSH-only deckt die Zugriffsfrage
+  bereits vollständig ab; ein zusätzlicher Dienst wäre nur zusätzliche
+  Angriffsfläche ohne zusätzlichen Nutzen.
+- **Alternative Agent-Runtime auf dem Server** (z. B. ein
+  Open-Weights-Modell wie Nous Hermes statt Claude Code, wegen
+  potenzieller Lernfähigkeit/Fine-Tuning über Zeit). Reine
+  Forschungsfrage ohne konkreten Plan — nicht Teil des aktuellen
+  Harness. Falls das später verfolgt wird, gehört es als eigener
+  Abschnitt hierher, mit einem echten Vergleich statt einer Idee.
+- **GCC (Git Context Controller)** als separates Tool. Ersetzt durch
+  `claude_docs/log/` (Abschnitt 1.2) — löst dasselbe Problem ohne ein
+  zusätzliches System.
+
+---
 
 ## Woher der Stack kommt
 
@@ -168,27 +361,27 @@ fälschlich dorthin und wurden korrigiert. `moodle_appstore` und
 (`leamar1e/moodle_appstore`, `pfisterer/self-service-ui`) ohne
 gemeinsame Historie mit dem Template.
 
+---
+
 ## Status (Stand 2026-09-15)
 
 | System | Status |
 |---|---|
-| 1 · Wissen | offen — kein `claude_docs/` in irgendeinem Repo; Graphify nur in `worker/` |
-| 2 · Deployment-Ops-MCP | offen — VM läuft produktiv, aber kein MCP, kein `/diagnose-production`-Skill, keine OpenStack-API-Anbindung |
-| 3 · Zugriff & Guardrails | teilweise — Org-Write-Zugriff ✅ gesetzt; Branch-Protection fehlt überall; Server-Zugang aktuell nur über geteilten `ubuntu`+Sudo-User, kein `claude-agent`-User |
-| 4 · Engineering-Loop | offen — kein `/tdd`-Skill, ECC nicht eingezogen; CI existiert, ist aber nicht Merge-Pflicht |
+| 1 · Wissen | offen — kein geschachteltes `claude_docs/` in irgendeinem Repo; nur `worker/graphify-out/` existiert, kein Cross-Repo-Graph, `.gitattributes` mit Merge-Driver liegt lokal vor, aber uncommitted |
+| 2 · Deployment-Ops-Skills | offen — keiner der drei MCPs (github, podman, openstack) ist angebunden, keine Skills geschrieben |
+| 3 · Zugriff & Guardrails | teilweise — Org-Write-Zugriff ✅ gesetzt; Branch-Protection fehlt überall; Server-Zugang nur über geteilten `ubuntu`+Sudo-User, kein `claude-agent`-User, keine PreToolUse-Hooks |
+| 4 · Engineering-Loop | offen — ECC-Grundgerüst nicht eingezogen, Superpowers nicht evaluiert, kein `/tdd`-Skill |
 
 **Die drei größten offenen Punkte, in Reihenfolge:**
 
-1. **Branch-Protection auf `main`** in allen sechs Repos — ohne das
-   ist jeder andere Guardrail umgehbar.
-2. **Eigener `claude-agent`-User auf `appstore-prod-01`** statt
-   Wiederverwendung von `ubuntu`+Sudo, kombiniert mit den
-   PreToolUse-Hooks aus System 3 — sonst hat ein Agent auf dem Server
-   dieselbe Macht wie ein Mensch mit vollem SSH-Zugriff.
-3. **Deployment-Ops-MCP inkl. OpenStack-Anbindung** bauen — aktuell
-   gibt es kein Werkzeug, nur SSH-Handarbeit.
+1. **Branch-Protection auf `main`** in allen sechs Repos.
+2. **`claude-agent`-User + PreToolUse-Hooks auf `appstore-prod-01`** —
+   ohne beides zusammen ist der Server-Zugang für einen Agenten
+   effektiv unbegrenzt.
+3. **Die drei Deployment-Ops-MCPs anbinden** (github, podman,
+   openstack) und die ersten Skills (`/diagnose-production`,
+   `/deploy-status`, `/restart-service`) schreiben.
 
 **Bekannte, nicht behebbare Lücke:** `members_can_delete_repositories`
 / `members_can_change_repo_visibility` lassen sich über die GitHub-API
-auf diesem Plan nicht deaktivieren. Nur manuell in den Org-Settings
-prüfbar, falls der Plan das überhaupt zulässt.
+auf diesem Plan nicht deaktivieren.

@@ -71,21 +71,36 @@ for d in backend frontend worker deployment moodle_appstore self-service-ui; do
 done
 ```
 
-## 3. Claude Code pro Repo konfigurieren
+## 3. `claude_docs/` anlegen — geschachtelt, mit Log
 
-Jedes Repo braucht sein eigenes `claude_docs/` — das ist der Layer-i-
-Baustein aus `HARNESS.md`. Lege ihn in jedem der vier Kern-Repos an:
+Kein flaches `claude_docs/architecture.md` — siehe `HARNESS.md`
+Abschnitt 1.1 für die volle Begründung und die genaue Struktur pro
+Repo-Typ. Kurzfassung zum Nachbauen:
 
 ```bash
+# backend, frontend, worker: architecture/ + decisions/ + debugging/ + log/
 for d in backend frontend worker; do
-  mkdir -p "$d/claude_docs"
-  touch "$d/claude_docs/architecture.md" "$d/claude_docs/decisions.md" "$d/claude_docs/debugging.md"
+  mkdir -p "$d/claude_docs"/{architecture,decisions,debugging,log}
+  touch "$d/claude_docs/architecture/overview.md"
 done
 
-mkdir -p deployment/claude_docs
-touch deployment/claude_docs/architecture.md deployment/claude_docs/decisions.md
-touch deployment/claude_docs/topology.md deployment/claude_docs/rollback.md
+# deployment: topology/ statt debugging/, plus rollback/
+mkdir -p deployment/claude_docs/{topology,decisions,rollback,log}
+touch deployment/claude_docs/topology/{environments,boot-order,networking}.md
+
+# moodle_appstore, self-service-ui: vorerst flach, siehe HARNESS.md 1.1
+for d in moodle_appstore self-service-ui; do
+  mkdir -p "$d/claude_docs"
+  touch "$d/claude_docs/architecture.md" "$d/claude_docs/decisions.md"
+done
 ```
+
+**Der Log-Ordner ist kein optionales Extra.** `claude_docs/log/<jahr>-
+<monat>.md` ist unser Ersatz für einen Git Context Controller — jede
+Session, die etwas architekturrelevantes ändert (auch: Guardrails
+korrigiert, ein Repo repariert, eine Recherche mit Ergebnis
+abgeschlossen), schreibt vor Sitzungsende einen kurzen Eintrag dort
+rein. Format und Beispiel: `HARNESS.md` Abschnitt 1.2.
 
 In jedes root-`CLAUDE.md` (falls noch nicht vorhanden, anlegen) gehört
 mindestens:
@@ -97,32 +112,59 @@ Teil der DHBW-AppStore-T3 Organisation — sechs eigenständige Repos,
 kein Monorepo. Harness-Gesamtkonzept: siehe
 https://github.com/DHBW-AppStore-T3/.github/blob/main/docs/HARNESS.md
 
-Details zu diesem Repo: siehe claude_docs/architecture.md,
-claude_docs/decisions.md, claude_docs/debugging.md
+Details zu diesem Repo: siehe claude_docs/architecture/,
+claude_docs/decisions/, claude_docs/debugging/ (bzw. topology/ +
+rollback/ bei deployment), claude_docs/log/
 ```
 
 Das hält jede einzelne `CLAUDE.md` klein und verhindert, dass fünf
 Leute an fünf Kopien derselben Erklärung vorbeischreiben.
 
-## 4. Repo Knowledge Graph (Graphify)
+## 4. Repo Knowledge Graph (Graphify) — lokal und global
 
 `worker/` hat bereits einen Graphen unter `worker/graphify-out/`. Für
-die übrigen Repos: `/graphify` im jeweiligen Repo-Root ausführen. Ein
-Graph pro Repo, kein Graph fürs Gesamtsystem — die Verbindungen
-zwischen den Services (welcher REST-Endpunkt, welcher Celery-Task-Name)
-gehören stattdessen in `claude_docs/architecture.md`.
+die übrigen Repos: `/graphify` im jeweiligen Repo-Root ausführen —
+das legt einen **lokalen** Graphen pro Repo an.
 
-## 5. TDD-Skill nutzen
+Zusätzlich gibt es einen **globalen, Repo-übergreifenden** Graphen
+(`HARNESS.md` Abschnitt 1.3), der die sechs lokalen Graphen zu einem
+zusammenführt:
 
-- In `backend/` oder `worker/`: Tests laufen über `pytest` (Poetry-
-  basiert, siehe `pyproject.toml` im jeweiligen Repo).
-- In `frontend/`: Tests laufen über `vitest`
-  (`frontend/vitest.config.ts`).
+```bash
+graphify merge-graphs \
+  backend/graphify-out/graph.json \
+  frontend/graphify-out/graph.json \
+  worker/graphify-out/graph.json \
+  deployment/graphify-out/graph.json \
+  moodle_appstore/graphify-out/graph.json \
+  self-service-ui/graphify-out/graph.json \
+  --out cross-repo-graph.json
+```
 
-Bis der `/tdd`-Skill existiert (siehe Statusabschnitt in `HARNESS.md`):
-halte dich manuell an den Loop — Test schreiben, der fehlschlägt →
-minimal implementieren → Test grün → refactoren → volle Suite laufen
-lassen, bevor du den Agenten etwas als "fertig" melden lässt.
+Das läuft normalerweise **nicht** manuell — ein CI-Schritt pro Repo
+hält den lokalen Graphen bei jedem Push auf `main` aktuell
+(`graphify update <path>`, kein LLM-Call), ein separater Workflow im
+`.github`-Repo führt den Merge periodisch aus. Solange dieser
+Workflow noch nicht existiert (siehe Statusabschnitt in `HARNESS.md`):
+lokale Graphen manuell pflegen, globalen Merge bei Bedarf von Hand
+ausführen.
+
+## 5. Engineering-Loop: ECC, Superpowers, TDD
+
+- **Everything Claude Code (ECC)** liefert das Grundgerüst für
+  `.claude/agents/`, `.claude/hooks/`. Noch nicht eingezogen — siehe
+  Statusabschnitt in `HARNESS.md`.
+- **[Superpowers](https://github.com/obra/superpowers)** — konkret
+  genutzt werden die Brainstorming-, TDD- und
+  Debugging-Workflow-Skills daraus, siehe `HARNESS.md` Abschnitt 4.2
+  für was genau und warum.
+- **Tests:** `pytest` in `backend`/`worker` (Poetry-basiert), `vitest`
+  in `frontend` (`frontend/vitest.config.ts`).
+
+Bis der `/tdd`-Skill existiert: halte dich manuell an den Loop — Test
+schreiben, der fehlschlägt → minimal implementieren → Test grün →
+refactoren → volle Suite laufen lassen, bevor du den Agenten etwas als
+"fertig" melden lässt.
 
 ## 6. Guardrails, die du kennen solltest (auch ohne dass sie technisch erzwungen sind)
 
@@ -183,16 +225,17 @@ hast:
 Umlaute**. Ein falscher Hostname bricht DNS und die VM lässt sich nur
 löschen, nicht reparieren.
 
-## 8. Deployment-Ops-MCP (sobald verfügbar)
+## 8. Deployment-Ops-Skills (sobald verfügbar)
 
-Noch nicht gebaut (siehe Statusabschnitt in `HARNESS.md`). Zielbild:
-ein MCP-Server `appstore-ops`, der `get_health()`, `get_logs(service)`,
-`get_deployments()`, `get_errors()` sowie eine eng begrenzte
-`restart_service(name)`-Aktion bereitstellt, plus lesenden
-OpenStack-API-Zugriff (`openstack_server_list()`,
-`openstack_server_status()`, `openstack_quota()`). Bis dahin: Diagnose
-läuft über manuelles `ssh appstore-vm "docker compose logs ..."`, nie
-über direktes `sudo`.
+Noch nicht angebunden (siehe Statusabschnitt in `HARNESS.md`).
+Zielbild: keine eigene MCP-Entwicklung, sondern drei bestehende
+MCP-Server plus Skills, die sie in fester Reihenfolge ansteuern —
+`github/github-mcp-server`, `manusa/podman-mcp-server`,
+`avinas234/openstack-mcp` (rein lesend). Details und Begründung für
+jeden: `HARNESS.md` Abschnitt 2.
+
+Bis diese Skills existieren: Diagnose läuft über manuelles
+`ssh appstore-vm "docker compose logs ..."`, nie über direktes `sudo`.
 
 ## Wenn etwas an diesem Setup schon wieder veraltet ist
 
