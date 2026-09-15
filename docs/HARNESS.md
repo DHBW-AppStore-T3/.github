@@ -572,25 +572,35 @@ gemeinsame Historie mit dem Template.
 
 ---
 
-## Status (Stand 2026-09-15, Branch-Protection nachgezogen)
+## Status (Stand 2026-09-15, Hermes-Agent live auf appstore-prod-01)
 
 | System | Status |
 |---|---|
 | 1 · Wissen | offen — kein geschachteltes `claude_docs/` in irgendeinem Repo; nur `worker/graphify-out/` existiert, kein Cross-Repo-Graph, `.gitattributes` mit Merge-Driver liegt lokal vor, aber uncommitted |
-| 2 · Deployment-Ops-Skills | offen — keiner der drei MCPs (github, podman, openstack) ist angebunden, keine Skills geschrieben |
-| 3 · Zugriff & Guardrails | teilweise — Org-Write-Zugriff ✅, **Branch-Protection ✅ in allen sechs Repos gesetzt** (3.1); Server-Zugang (3.2) nach wie vor nur über geteilten `ubuntu`+Sudo-User, kein `claude-agent`-User, keine PreToolUse-Hooks |
+| 2 · Deployment-Ops-Skills | teilweise — `podman-mcp` ✅ läuft produktiv (Abschnitt 2.1) und ist an Hermes angebunden; `github-mcp-server` und `openstack-mcp` noch nicht; keine Skills (`/diagnose-production` etc.) geschrieben |
+| 3 · Zugriff & Guardrails | teilweise — Org-Write-Zugriff ✅, Branch-Protection ✅ in allen sechs Repos; Server-Agent-Zugang ✅ **läuft** (Hermes + Discord-Allowlist, Abschnitt 3.2), aber noch über den `ubuntu`+Sudo-Login und die `docker`-Gruppe statt einem eigenen `claude-agent`-User mit PreToolUse-Hooks — MCP-Tool-Filter in `agent/config.yaml` ist aktuell die einzige durchgesetzte Grenze |
 | 4 · Engineering-Loop | offen — ECC-Grundgerüst nicht eingezogen, Superpowers nicht evaluiert, kein `/tdd`-Skill |
-| 5 · Autonomer Feature-Loop | offen — Merge-Freigabepunkt (5.2) ist jetzt real durchgesetzt statt nur Konvention; Staging-Auto-Deploy läuft bereits; ohne Systeme 1, 2, 4 fehlen dem Agenten aber weiterhin die Werkzeuge, um den Loop selbst zu durchlaufen |
+| 5 · Autonomer Feature-Loop | offen — Merge-Freigabepunkt (5.2) ist jetzt real durchgesetzt statt nur Konvention; Staging-Auto-Deploy läuft bereits; ohne Systeme 1 und 4 fehlen dem Agenten weiterhin die Werkzeuge, um den Loop selbst zu durchlaufen |
+
+**Was seit der letzten Statuszeile live gegangen ist:** Hermes Agent
+(Gemini-backed) läuft auf `appstore-prod-01`, verbunden mit
+`podman-mcp` für Container-Diagnose und über Discord (User-Allowlist,
+siehe 3.2) erreichbar — getestet, antwortet. Fünf reale Deploy-Bugs
+dabei gefunden und behoben, siehe 2.1.
 
 **Die drei größten verbleibenden offenen Punkte, in Reihenfolge:**
 
 1. **`claude-agent`-User + PreToolUse-Hooks auf `appstore-prod-01`** —
-   Voraussetzung sowohl für sichere Diagnose (System 3.2) als auch für
-   agentengestützte Deploy-Ausführung (System 5.4). Jetzt der größte
-   verbleibende Guardrail, seit Branch-Protection steht.
-2. **Die drei Deployment-Ops-MCPs anbinden** (github, podman,
-   openstack) und die ersten Skills (`/diagnose-production`,
-   `/deploy-status`, `/restart-service`) schreiben.
+   Hermes läuft aktuell noch über den `ubuntu`-Login und dessen
+   `docker`-Gruppenmitgliedschaft, nicht über einen eigenen,
+   eingeschränkten System-User. Die MCP-Tool-Allowlist in
+   `agent/config.yaml` ist die einzige *durchgesetzte* Grenze bisher —
+   sie reicht für Hermes selbst, ersetzt aber nicht die separate
+   Identität für alles, was direkt auf dem Host läuft (System 3.2).
+2. **`github-mcp-server` und `openstack-mcp` anbinden**, die ersten
+   Skills (`/diagnose-production`, `/deploy-status`, `/restart-service`)
+   schreiben — `podman-mcp` ist der Beweis, dass der Ansatz
+   funktioniert, jetzt für die anderen beiden MCPs wiederholen.
 3. **Den `/ship-feature`-artigen Loop-Skill schreiben** (System 5.1),
    der Systeme 1, 2 und 4 tatsächlich zu einer Kette verbindet.
 
