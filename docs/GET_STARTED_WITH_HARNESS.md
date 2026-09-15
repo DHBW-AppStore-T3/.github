@@ -146,15 +146,35 @@ Team-Konvention:
   (bekannte, noch ungelöste Lücke — siehe `HARNESS.md`). Sei
   entsprechend vorsichtig mit `gh repo delete` und ähnlichen Befehlen.
 
-## 7. Server-Zugriff (sobald du ihn brauchst)
+## 7. Server-Zugriff — `appstore-prod-01`
 
-Das OpenStack-Projekt `ma_wwi_24sea_appstore_g3` ist freigeschaltet.
-Falls du dort noch keinen Zugriff eingerichtet hast:
+Die Produktions-VM läuft bereits (OpenStack-Projekt
+`ma_wwi_24sea_appstore_g3`, 10 Docker-Container: nginx, frontend,
+backend, worker, keycloak, postgres ×2, rabbitmq, redis). **Das ist
+scharfe Produktion, keine Test-VM.**
+
+Für Menschen: Zugriff läuft aktuell über den `ubuntu`-User (Public Key
+in `authorized_keys` hinterlegt, frag im Team um Zugang). Dieser User
+hat passwortlosen Sudo — sei entsprechend vorsichtig, jeder Befehl
+läuft effektiv als root.
+
+**Für einen Agenten gilt das nicht.** Ein Agent (egal ob lokal
+gestartet und per SSH auf die VM zugreifend, oder direkt auf der VM
+laufend) darf **nicht** den `ubuntu`-User verwenden. Solange der in
+`HARNESS.md` beschriebene `claude-agent`-User samt PreToolUse-Hooks
+noch nicht existiert, gilt: keine schreibenden Aktionen eines Agenten
+gegen `appstore-prod-01`, nur Lesen (Logs, Health, `docker ps`) über
+den `ubuntu`-Zugang, alles Schreibende geht über die reguläre
+CI/CD-Pipeline in `deployment/`.
+
+Falls du selbst noch keinen OpenStack-Zugriff (nicht denselben wie
+SSH-auf-die-VM, sondern für Terraform/die OpenStack-API) eingerichtet
+hast:
 
 1. Login: <https://newstack.dhbw.cloud> über BWIDM/DHBW-Login
 2. SSH-Public-Key hochladen: Project → Key Pairs → Import
    — nutze nach Möglichkeit einen **separaten** Key, nicht deinen
-   privaten Alltags-Key (Layer v im Harness: dedizierte Agent-Identität)
+   privaten Alltags-Key
 3. `clouds.yaml` herunterladen: Account → OpenStack RC File, ablegen
    unter `~/.config/openstack/clouds.yaml`
 4. Testen: `openstack server list`
@@ -162,6 +182,17 @@ Falls du dort noch keinen Zugriff eingerichtet hast:
 **VM-Namensregeln:** nur Buchstaben, Ziffern, Bindestriche — **keine
 Umlaute**. Ein falscher Hostname bricht DNS und die VM lässt sich nur
 löschen, nicht reparieren.
+
+## 8. Deployment-Ops-MCP (sobald verfügbar)
+
+Noch nicht gebaut (siehe Statusabschnitt in `HARNESS.md`). Zielbild:
+ein MCP-Server `appstore-ops`, der `get_health()`, `get_logs(service)`,
+`get_deployments()`, `get_errors()` sowie eine eng begrenzte
+`restart_service(name)`-Aktion bereitstellt, plus lesenden
+OpenStack-API-Zugriff (`openstack_server_list()`,
+`openstack_server_status()`, `openstack_quota()`). Bis dahin: Diagnose
+läuft über manuelles `ssh appstore-vm "docker compose logs ..."`, nie
+über direktes `sudo`.
 
 ## Wenn etwas an diesem Setup schon wieder veraltet ist
 

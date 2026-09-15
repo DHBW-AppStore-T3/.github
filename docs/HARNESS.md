@@ -1,171 +1,194 @@
 # Agent-Harness für den AppStore
 
-Dieses Dokument beschreibt, wie Claude Code (oder ein vergleichbarer
-Coding-Agent) in der `DHBW-AppStore-T3`-Organisation aufgesetzt ist und
-warum die Struktur so aussieht, wie sie aussieht. Es ist die Erklärung
-hinter dem Setup — die Schritt-für-Schritt-Anleitung, um es selbst
-aufzubauen, steht in [`GET_STARTED_WITH_HARNESS.md`](GET_STARTED_WITH_HARNESS.md).
+Wie Claude Code in der `DHBW-AppStore-T3`-Organisation aufgesetzt ist,
+und warum. Die Setup-Anleitung dazu steht in
+[`GET_STARTED_WITH_HARNESS.md`](GET_STARTED_WITH_HARNESS.md); eine
+visuelle Fassung als [Claude-Artifact](https://claude.ai/code/artifact/8dd27aed-ef44-4cbd-bd81-bb3874e89af2)
+(wird nach dieser Überarbeitung aktualisiert).
 
-Eine visuell aufbereitete Version dieses Konzepts (Layer-Diagramm, Status
-pro Komponente) liegt als [Claude-Artifact](https://claude.ai/code/artifact/8dd27aed-ef44-4cbd-bd81-bb3874e89af2).
+## Der Rahmen: sechs Repos, eine laufende Prod-VM
 
-## Warum ein Harness und nicht nur eine CLAUDE.md
-
-Ein Agent ist nur so gut wie das, was er über das Projekt weiß, worauf er
-zugreifen kann, und welche Leitplanken ihn stoppen, bevor er etwas kaputt
-macht. Eine einzelne, wachsende `CLAUDE.md` beantwortet das für ein
-Ein-Repo-Projekt — der AppStore ist aber **sechs eigenständige
-Git-Repositories** unter einer gemeinsamen GitHub-Organisation, jedes mit
-eigenem Lebenszyklus, eigener CI und eigenem Deploy-Ziel:
+Der AppStore ist **sechs eigenständige Git-Repositories** unter einer
+gemeinsamen GitHub-Org, kein Monorepo:
 
 | Repo | Stack | Rolle |
 |---|---|---|
-| [`backend`](https://github.com/DHBW-AppStore-T3/backend) | FastAPI, SQLAlchemy 2.0, PostgreSQL | REST-API, liest/schreibt App-Definitionen, stößt Deploys an |
+| [`backend`](https://github.com/DHBW-AppStore-T3/backend) | FastAPI, SQLAlchemy 2.0, PostgreSQL | REST-API, App-Definitionen, stößt Deploys an |
 | [`frontend`](https://github.com/DHBW-AppStore-T3/frontend) | Vue 3, Pinia, Tailwind | Web-UI für Dozierende/Studierende |
 | [`worker`](https://github.com/DHBW-AppStore-T3/worker) | Celery, RabbitMQ, Redis | führt Terraform/Packer-Deploys asynchron aus, streamt Logs per SSE |
-| [`deployment`](https://github.com/DHBW-AppStore-T3/deployment) | Docker Compose, Terraform, Ansible, Caddy, Keycloak, Forgejo | hält dev/staging/prod-Umgebungen zusammen |
-| [`moodle_appstore`](https://github.com/DHBW-AppStore-T3/moodle_appstore) | Moodle-Fork | LTI-Integrationsziel, Prototyp für die Anbindung an echtes DHBW-Moodle |
-| [`self-service-ui`](https://github.com/DHBW-AppStore-T3/self-service-ui) | Fork von [pfisterer/self-service-ui](https://github.com/pfisterer/self-service-ui) | Referenz-/Vergleichsimplementierung für Self-Service-Deploy-UIs |
+| [`deployment`](https://github.com/DHBW-AppStore-T3/deployment) | Docker Compose, Terraform, Ansible, Caddy, Keycloak, Forgejo | hält dev/staging/prod zusammen |
+| [`moodle_appstore`](https://github.com/DHBW-AppStore-T3/moodle_appstore) | Moodle-Fork | LTI-Integrationsziel |
+| [`self-service-ui`](https://github.com/DHBW-AppStore-T3/self-service-ui) | Fork von [pfisterer/self-service-ui](https://github.com/pfisterer/self-service-ui) | Referenzimplementierung |
 
-Jedes dieser Repos braucht sein eigenes `claude_docs/`, aber alle sechs
-teilen dieselben zehn Bausteine. Diese Datei beschreibt die zehn Bausteine
-einmal; jedes Repo verlinkt hierher statt sie zu duplizieren.
+Und es gibt bereits eine **echte Produktions-VM**: `appstore-prod-01`
+auf OpenStack, 10 Docker-Container (nginx, frontend, backend, worker,
+keycloak, 2× postgres, rabbitmq, redis, tfstate-postgres), Uptime im
+Wochenbereich. Das ist kein Zielbild mehr — der Harness muss ab jetzt
+mit einem scharfen Produktivsystem rechnen, nicht mit einer
+hypothetischen zukünftigen VM.
 
-## Die zehn Bausteine
+Das ändert, wie dieses Dokument aufgebaut ist: statt zehn einzelnen
+Bausteinen gibt es **vier Systeme**. Jedes davon ist entweder ein
+Tool, das etwas tatsächlich kann, oder eine durchgesetzte Regel — keine
+Markdown-Datei, die nur beschreibt, was jemand tun sollte.
 
-Sortiert danach, **wo** ein Baustein lebt — das entscheidet, ob er
-committet, als Umgebungsvariable gehalten, oder einmalig als
-Architekturentscheidung getroffen wird.
+## Die vier Systeme
 
-### Repo-lokal (versioniert, PR-pflichtig wie jeder andere Code)
+### 1. Wissen — wie der Agent das Projekt versteht
 
-**i · Filesystem Knowledge**
-Jedes Repo bekommt ein `claude_docs/` statt einer wachsenden
-`CLAUDE.md`: `architecture.md`, `decisions.md`, `debugging.md`. Das Repo
-`deployment` bekommt statt `debugging.md` ein `topology.md` +
-`rollback.md`, weil es keinen Code zum Debuggen hat, sondern Dienste in
-fester Reihenfolge hochfahren muss (Caddy → Keycloak → backend → worker →
-frontend). Das root-`CLAUDE.md` jedes Repos bleibt dünn und verlinkt nur.
+Zwei Dinge, beide repo-lokal, beide committet:
 
-**iv · Repo Knowledge Graph**
-Ein Graphify-Lauf pro Repo — nicht ein Monorepo-Graph, weil es kein
-Monorepo gibt. `worker/graphify-out/`
-existiert bereits als Referenz. Was ein einzelner Graph nicht zeigen
-kann — wie backend, frontend und worker über REST-Endpunkte und
-Celery-Task-Namen zusammenhängen — muss explizit in
-`claude_docs/architecture.md` jedes Repos stehen.
+- **`claude_docs/`** pro Repo (`architecture.md`, `decisions.md`,
+  `debugging.md`; bei `deployment`: `topology.md` + `rollback.md`
+  statt `debugging.md`, weil es dort keinen Code, sondern eine feste
+  Hochfahr-Reihenfolge gibt — Caddy → Keycloak → backend → worker →
+  frontend). Jedes root-`CLAUDE.md` bleibt dünn und verlinkt nur
+  hierher.
+- **Graphify** pro Repo (`worker/graphify-out/` existiert bereits als
+  Referenz). Zeigt Struktur *innerhalb* eines Repos. Was ein Graph
+  nicht zeigen kann — wie backend, frontend und worker über
+  REST-Endpunkte und Celery-Task-Namen zusammenhängen — muss explizit
+  in `claude_docs/architecture.md` stehen.
 
-**vii · TDD / Verification**
-Ein Skill, der nach Sprache verzweigt: `pytest` für backend/worker (beide
-Poetry-basiert), `vitest` für frontend. Der Loop bleibt gleich:
-fehlschlagender Test → minimale Implementierung → grün → Refactor → volle
-Suite → erst dann zurück an den Nutzer.
+**Warum als ein System zusammengefasst:** beides beantwortet dieselbe
+Frage ("was muss der Agent über *dieses* Repo wissen, bevor er etwas
+anfasst") mit unterschiedlicher Granularität — Graphify für Struktur,
+`claude_docs/` für Kontext und Entscheidungen, die kein Graph zeigen
+kann.
 
-**ix · Guardrails**
-Mehrschichtig, vom Harness durchgesetzt statt per Anweisung, der sich ein
-Agent entziehen könnte:
+### 2. Deployment-Ops — das eine große fehlende Tool
 
-1. **Claude Permissions** — Tool-Allowlist pro Session; ein Docs-Agent
-   bekommt nie Schreibzugriff auf `deployment/`.
-2. **PreToolUse Hooks** — blockt `docker compose -f
-   docker-compose.prod.yml` außerhalb eines expliziten Deploy-Flows,
-   blockt Schreibzugriffe auf jede `.env`.
-3. **Org- / Git-Regeln** — Branch-Protection auf `main` in allen sechs
-   Repos (Stand jetzt: **fehlt überall**, siehe Statusabschnitt unten).
-4. **CI-Checks** — Lint + Test müssen vor einem Merge grün sein, nicht
-   nur vorhanden.
-5. **Deployment Gate** — Staging → Prod nur wenn CI grün ist;
-   Alembic-Migrationen brauchen immer explizite menschliche Bestätigung.
+Das ist der Baustein mit dem größten Hebel und dem größten Risiko,
+weil er direkt gegen `appstore-prod-01` wirkt. Bisher war das über vier
+Punkte verteilt (Server Claude, Remote Execution, Observability,
+OpenStack-Zugriff) — das bündelt sich zu **einem MCP-Server**, den ein
+Agent (egal ob lokal oder auf dem Server selbst) anspricht:
 
-### Machine-/Account-lokal (nie committet, pro Agent gescoped)
+```
+Agent
+  │
+  ├── Skill: /diagnose-production
+  │       beschreibt die Reihenfolge: Health → Logs → letzte
+  │       Deployments → Metriken, nie andersrum
+  │
+  └── MCP: appstore-ops
+          ├── get_health()               [lesend]
+          ├── get_logs(service)          [lesend]
+          ├── get_deployments()          [lesend]
+          ├── get_errors()               [lesend]
+          ├── restart_service(name)      [schreibend, Allowlist]
+          ├── openstack_server_list()    [lesend, OpenStack API]
+          ├── openstack_server_status()  [lesend, OpenStack API]
+          └── openstack_quota()          [lesend, OpenStack API]
+```
 
-**ii · Tool-/Repo-Zugriff**
-Credentials als Umgebungsvariablen. Ein Agent, der nur am Frontend
-arbeitet, sieht nie `KEYCLOAK_ADMIN_TOKEN` oder DB-Passwörter. Auf
-Org-Ebene ist `default_repository_permission: write` gesetzt — alle
-Mitglieder können in alle sechs Repos pushen, ohne repo-für-repo
-Einladung.
+Der bisher fehlende Teil ist die OpenStack-Anbindung: aktuell gibt es
+keinen MCP/CLI-Zugriff auf die OpenStack-API selbst (Server-Liste,
+Quotas, Volume-Status) — nur auf das, was via SSH auf der VM sichtbar
+ist. Das MCP läuft gegen `clouds.yaml` (Layer aus dem alten Punkt ii)
+und ergänzt die Docker-Ebene um die Infrastruktur-Ebene darunter.
 
-**iii · Server Claude**
-Claude Code (oder ein Diagnose-Agent) auf der OpenStack-VM, mit eigener
-`~/.claude/`-Konfiguration. Setzt eine laufende VM voraus — siehe
-Statusabschnitt.
+**Wo dieses MCP laufen darf, ist eine Governance-Frage, kein
+Implementierungsdetail** — siehe nächster Abschnitt.
 
-**v · Remote Execution**
-Ein dedizierter `ed25519`-Key und ein eigener, nicht-privilegierter
-`agent`-User für SSH-Zugriffe — nie dieselbe Identität, mit der ein
-Mensch sich einloggt.
+### 3. Zugriff & Guardrails — durchgesetzt, nicht dokumentiert
 
-### Architekturentscheidung (einmal bewerten, bewusst übernehmen)
+Ein System, zwei Ebenen: GitHub-Org-Ebene und Server-Ebene.
 
-**vi · Engineering Standards**
-Everything Claude Code (ECC) als Ausgangs-Template für Rules, Agents,
-Skills, Hooks. Wo Python (Ruff) und TypeScript (Vite) unterschiedliche
-Lint-Konventionen brauchen, sitzen die Abweichungen in `claude_docs/` des
-jeweiligen Repos — ECC bleibt der gemeinsame Boden.
+**GitHub-Org:**
+- `default_repository_permission: write` ist gesetzt — alle sechs
+  Mitglieder können in alle sechs Repos pushen.
+- Branch-Protection auf `main` fehlt in **allen sechs Repos** — das
+  ist aktuell der größte offene Guardrail, weil er alles andere
+  wirkungslos macht: ein Pre-Merge-CI-Check bringt nichts, wenn ein
+  Direct-Push ihn umgeht.
+- `members_can_delete_repositories` / `members_can_change_repo_visibility`
+  stehen auf `true` und lassen sich über die API auf diesem Plan nicht
+  abschalten (GitHub nimmt den PATCH mit `200 OK` an, ändert den Wert
+  aber nicht) — jedes Mitglied kann aktuell ein Repo löschen.
 
-**viii · Observability**
-Kein `observability.md` mit "schau in die Logs". Ein Skill
-(`/diagnose-production`) beschreibt den Ablauf — erst Health-Check, dann
-Logs des betroffenen Dienstes, dann letzte Deployments, dann Metriken.
-Eine kleine CLI/MCP-Oberfläche (`get_health()`, `get_logs(service)`,
-`get_deployments()`, `get_errors()`) gibt dem Skill die tatsächliche
-Fähigkeit. Solange keine echte VM den Stack betreibt, ist das ein
-dünner Wrapper um `docker compose logs` — kein Grafana/Loki. Das ist
-bewusst so; ein echter Metrik-Stack ist eine spätere, separate
-Entscheidung.
+**Server (`appstore-prod-01`):**
+- Der einzige aktuell existierende Zugang ist der `ubuntu`-User mit
+  **passwortlosem Sudo** — dasselbe Login, mit dem sich auch ein
+  Mensch einloggt. Für einen Agenten ist das kein Zugang, den man
+  wiederverwenden sollte, selbst für reine Diagnose.
+- Geplanter Zielzustand: ein eigener, nicht-privilegierter
+  `claude-agent`-User, Mitglied der `docker`-Gruppe (nötig, um
+  `docker`-Befehle auszuführen), aber **ohne `sudo`**, mit eigenem
+  `ed25519`-Key statt des geteilten `ubuntu`-Keys.
+- **Wichtige Einschränkung, die nicht verschwiegen werden soll:**
+  Mitgliedschaft in der `docker`-Gruppe ist selbst schon
+  root-äquivalent (`docker run -v /:/host ...` gibt vollen
+  Host-Zugriff — das ist kein Konfigurationsfehler, sondern wie Docker
+  grundsätzlich funktioniert). Der eigene Linux-User trennt also nur
+  Audit-Spuren und verhindert versehentliche `sudo`-Nutzung — er ist
+  **keine echte Sandbox** gegen einen Agenten, der absichtlich oder
+  durch einen Fehler etwas Destruktives ausführt.
+- Die tatsächliche Grenze kommt deshalb nicht vom Linux-User, sondern
+  von **PreToolUse-Hooks auf Claude-Seite**: eine feste Allowlist an
+  `docker`-Unterbefehlen (`ps`, `logs`, `compose logs`, `compose
+  restart <name>`), alles andere wird geblockt, bevor es die Shell
+  erreicht. Das MCP aus System 2 spiegelt dieselbe Allowlist — beide
+  Ebenen zusammen sind der Guardrail, keine einzelne für sich.
 
-**x · Persistent Context**
-GCC (Git Context Controller) würde Git-Historie als strukturierten
-Kontext über Sessions hinweg verwalten. Voraussetzung — ein echtes
-Git-Repo pro Service — ist jetzt erfüllt. Ob GCC für ein
-Sechs-Repo-Setup mit größtenteils kurzer Historie Mehrwert bringt, ist
-noch offen und wird pro Repo einzeln evaluiert, nicht org-weit
-ausgerollt.
+Dazu kommen die klassischen Repo-Guardrails: CI muss vor Merge grün
+sein (nicht nur vorhanden — `ci.yml` existiert in backend/frontend/
+worker, `secret-scan.yml` + `staging.yml` in deployment, aber ohne
+Branch-Protection erzwingt das nichts), und Alembic-Migrationen
+brauchen immer explizite menschliche Bestätigung, nie automatisiert.
+
+### 4. Engineering-Loop — wie Code entsteht und geprüft wird
+
+- **Standards:** Everything Claude Code (ECC) als gemeinsamer Boden;
+  wo Python (Ruff) und TypeScript (Vite) unterschiedliche
+  Lint-Konventionen brauchen, stehen die Abweichungen in
+  `claude_docs/` des jeweiligen Repos.
+- **Verifikation:** ein Skill, der nach Sprache verzweigt — `pytest`
+  für backend/worker (Poetry-basiert), `vitest` für frontend. Der Loop
+  bleibt gleich: fehlschlagender Test → minimale Implementierung →
+  grün → Refactor → volle Suite → erst dann zurück an den Nutzer.
+
+## Bewusst nicht (jetzt) Teil des Harness
+
+**Persistent Context (GCC):** würde Git-Historie als strukturierten
+Kontext über Sessions verwalten. Die Voraussetzung — echte
+Git-Repos — ist erfüllt, aber bei sechs Repos mit größtenteils kurzer
+Historie ist unklar, ob es Mehrwert bringt. Wird pro Repo einzeln
+evaluiert, nicht vorab org-weit eingeführt.
 
 ## Woher der Stack kommt
 
-`DHBW-AppStore-T3` ist der Fork unseres Teams (Team 3) vom
+`DHBW-AppStore-T3` ist der Fork unseres Teams vom
 `six7-click-n-deploy`-Template. `frontend`, `backend`, `worker`,
-`deployment` und `.github` (dieses Doku-Repo) sind alle als Forks
-markiert und teilen diese Herkunft. `DHBW-AppStore` (ohne `-T3`) ist eine
-**andere** Gruppe mit demselben Template — Ähnlichkeit im Namen, kein
-gemeinsamer Betrieb. Frühere lokale Klone in diesem Projekt zeigten
-teils fälschlich auf `DHBW-AppStore` statt `DHBW-AppStore-T3`; das wurde
-korrigiert (siehe Statusabschnitt).
-
-`moodle_appstore` und `self-service-ui` sind externe Forks
-(`leamar1e/moodle_appstore` bzw. `pfisterer/self-service-ui`), die als
-Referenz-/Integrationsprojekte in die Org geholt wurden — sie teilen
-nicht die `six7-click-n-deploy`-Historie.
+`deployment`, `.github` teilen diese Herkunft. `DHBW-AppStore` (ohne
+`-T3`) ist eine **andere** Gruppe mit demselben Template — Ähnlichkeit
+im Namen, kein gemeinsamer Betrieb; frühere lokale Klone zeigten
+fälschlich dorthin und wurden korrigiert. `moodle_appstore` und
+`self-service-ui` sind externe Forks
+(`leamar1e/moodle_appstore`, `pfisterer/self-service-ui`) ohne
+gemeinsame Historie mit dem Template.
 
 ## Status (Stand 2026-09-15)
 
-Was schon steht, was noch fehlt — damit diese Datei nicht wie ein
-Idealbild wirkt, das nie überprüft wurde.
-
-| Baustein | Status |
+| System | Status |
 |---|---|
-| i · Filesystem Knowledge | offen — noch kein `claude_docs/` in irgendeinem Repo |
-| ii · Tool-/Repo-Zugriff | ✅ `default_repository_permission: write` org-weit gesetzt |
-| iii · Server Claude | blockiert — OpenStack-Projekt `ma_wwi_24sea_appstore_g3` freigeschaltet, aber noch keine VM |
-| iv · Repo Knowledge Graph | teilweise — nur `worker/graphify-out/` existiert |
-| v · Remote Execution | offen — kein dedizierter Agent-Key/-User |
-| vi · Engineering Standards | offen — ECC noch nicht als Basis eingezogen |
-| vii · TDD / Verification | offen — kein `/tdd`-Skill, Tests laufen nur über CI |
-| viii · Observability | offen — kein `/diagnose-production`-Skill, keine MCP-Oberfläche |
-| ix · Guardrails | teilweise — CI-Workflows vorhanden (`ci.yml` in backend/frontend/worker, `secret-scan.yml` + `staging.yml` in deployment), aber **keine Branch-Protection auf `main` in irgendeinem der sechs Repos** |
-| x · Persistent Context | zurückgestellt, bewusst |
+| 1 · Wissen | offen — kein `claude_docs/` in irgendeinem Repo; Graphify nur in `worker/` |
+| 2 · Deployment-Ops-MCP | offen — VM läuft produktiv, aber kein MCP, kein `/diagnose-production`-Skill, keine OpenStack-API-Anbindung |
+| 3 · Zugriff & Guardrails | teilweise — Org-Write-Zugriff ✅ gesetzt; Branch-Protection fehlt überall; Server-Zugang aktuell nur über geteilten `ubuntu`+Sudo-User, kein `claude-agent`-User |
+| 4 · Engineering-Loop | offen — kein `/tdd`-Skill, ECC nicht eingezogen; CI existiert, ist aber nicht Merge-Pflicht |
 
-**Bekannte Lücke außerhalb der zehn Bausteine:** `members_can_delete_repositories`
-und `members_can_change_repo_visibility` stehen org-weit auf `true` und
-ließen sich über die GitHub-API nicht auf Admin-only setzen (der PATCH-Call
-gibt `200 OK` zurück, ändert den Wert aber nicht — vermutlich eine
-Free-Plan-Einschränkung). Jedes der sechs Mitglieder kann aktuell ein
-Repo löschen oder dessen Sichtbarkeit ändern. Nur manuell in den
-Org-Settings prüfbar.
+**Die drei größten offenen Punkte, in Reihenfolge:**
 
-**Größter offener Punkt:** Branch-Protection auf `main` fehlt in allen
-sechs Repos — Direct-Pushes ohne Review oder Pflicht-CI-Check sind
-möglich. Das ist der Guardrail mit dem größten Hebel und sollte vor den
-übrigen Bausteinen kommen.
+1. **Branch-Protection auf `main`** in allen sechs Repos — ohne das
+   ist jeder andere Guardrail umgehbar.
+2. **Eigener `claude-agent`-User auf `appstore-prod-01`** statt
+   Wiederverwendung von `ubuntu`+Sudo, kombiniert mit den
+   PreToolUse-Hooks aus System 3 — sonst hat ein Agent auf dem Server
+   dieselbe Macht wie ein Mensch mit vollem SSH-Zugriff.
+3. **Deployment-Ops-MCP inkl. OpenStack-Anbindung** bauen — aktuell
+   gibt es kein Werkzeug, nur SSH-Handarbeit.
+
+**Bekannte, nicht behebbare Lücke:** `members_can_delete_repositories`
+/ `members_can_change_repo_visibility` lassen sich über die GitHub-API
+auf diesem Plan nicht deaktivieren. Nur manuell in den Org-Settings
+prüfbar, falls der Plan das überhaupt zulässt.
