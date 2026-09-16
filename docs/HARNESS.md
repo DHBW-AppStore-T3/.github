@@ -188,7 +188,7 @@ etablierte MCP-Server statt an rohes Bash/SSH:
 |---|---|---|
 | [`github/github-mcp-server`](https://github.com/github/github-mcp-server) | Deployment-Status, letzte Workflow-Runs, Commit-Historie, PR-Status | offizieller GitHub-MCP, deckt System 3 (Guardrails) und Deployment-Diagnose gleichzeitig ab |
 | [`manusa/podman-mcp-server`](https://github.com/manusa/podman-mcp-server) | Container-Status, Logs, gezielte Restarts | fokussiert auf Container-Runtimes (Docker + Podman), keine überladene Cloud-CLI-Oberfläche |
-| [`avinas234/openstack-mcp`](https://github.com/avinas234/openstack-mcp) | 70+ **read-only** Tools für OpenStack (Server-Liste, Quotas, Volumes) | rein lesend konzipiert — passt zur Governance-Regel unten, keine schreibenden OpenStack-Aktionen über den Agenten |
+| [`openstack-kr/python-openstackmcp-server`](https://github.com/openstack-kr/python-openstackmcp-server) | Server-/Netzwerk-/Identity-Status über die OpenStack-REST-API | nutzt `clouds.yaml` + OpenStack SDK, genau der Zugriff, den `openstack server list` auch hat — **korrigiert**: `avinas234/openstack-mcp` (frühere Wahl) braucht SSH-Zugriff auf den OpenStack-*Controller* selbst, den diese Org nicht hat, nur projektbezogenen API-Zugriff |
 
 Die Skill-Ebene:
 
@@ -264,11 +264,38 @@ Healthcheck wartet. Verifiziert: nach `docker restart hermes-agent-prod`
 sofort ohne weiteren Fehler.
 
 **Warum das hier steht statt nur im PR:** Das nächste MCP, das an
-diesen Harness angebunden wird (`github-mcp-server`,
-`openstack-mcp`), sollte denselben Fehler nicht wiederholen — bei
-einem fertigen Docker-Image "wird schon existieren" annehmen, oder
-`docker compose config` als ausreichenden Test ansehen. Ein realer
-Deploy-Versuch ist Pflicht, keine Kür.
+diesen Harness angebunden wird, sollte denselben Fehler nicht
+wiederholen — bei einem fertigen Docker-Image "wird schon existieren"
+annehmen, oder `docker compose config` als ausreichenden Test ansehen.
+Ein realer Deploy-Versuch ist Pflicht, keine Kür.
+
+### 2.2 `github-mcp-server` und OpenStack-MCP — vorbereitet, nicht deployt
+
+Beide sind in `deployment/agent/config.yaml` vollständig konfiguriert,
+aber auskommentiert — Config+Skills vorbereiten, kein Live-Deploy ohne
+die nötigen Credentials, analog zur Entscheidung aus System 2.
+
+**`github-mcp-server` braucht keinen eigenen Container.** GitHub
+hostet den MCP-Server selbst unter
+`https://api.githubcopilot.com/mcp/`, erreichbar per Streamable HTTP
+mit `Authorization: Bearer <PAT>` — kein Docker-Image, kein
+Socket-Mount, keines der `podman-mcp`-Probleme aus 2.1 kann hier
+überhaupt auftreten. `X-MCP-Readonly: true` erzwingt read-only
+serverseitig, zusätzlich zu einem ohnehin nur-lesenden PAT.
+
+**Bei OpenStack war die ursprüngliche Wahl falsch, vor jedem Deploy
+korrigiert:** `avinas234/openstack-mcp` (frühere Version dieses
+Dokuments) verbindet per SSH zum OpenStack-*Controller* und führt dort
+CLI-Befehle aus — das setzt Controller-Zugriff voraus, den diese Org
+nicht hat, nur projektbezogenen `clouds.yaml`-API-Zugriff wie jeder
+andere OpenStack-Tenant auch. Ersetzt durch
+`openstack-kr/python-openstackmcp-server`, das die OpenStack SDK gegen
+die REST-API nutzt — exakt der Zugriffslevel, den `openstack server
+list` bereits hat. Kein eingebauter Read-Only-Modus (verifiziert
+gegen den Quellcode, nicht angenommen): `get_*`/`create_*`/`delete_*`
+existieren nebeneinander als gleichwertige Tools. Gleiches Muster wie
+bei `podman-mcp` — die Allowlist in `agent/config.yaml` (nur `get_*`)
+ist die Guardrail, kein Server-Flag.
 
 ---
 
@@ -344,27 +371,41 @@ offener"**:
 - SSH bleibt parallel bestehen — Discord ersetzt es nicht, es ist ein
   zusätzlicher, aber ebenso begrenzter Kanal zum selben Agenten.
 
-**Was der Agent auf dem Server darf — eigener User, aber ehrlich
-begrenzt.** Zielzustand: ein `claude-agent`-Systemuser, Mitglied der
-`docker`-Gruppe, ohne `sudo`, mit eigenem `ed25519`-Key statt des
-geteilten `ubuntu`-Keys.
+**Was der Agent auf dem Server darf — Hermes ist der eine Agent, kein
+zweiter Host-User daneben.** Ein früherer Entwurf sah einen separaten
+`claude-agent`-Systemuser vor (Mitglied der `docker`-Gruppe, ohne
+`sudo`, eigener `ed25519`-Key) — bewusst wieder verworfen: zwei
+parallele Agent-Identitäten auf demselben Host (ein Claude-Code-Login
+per SSH *und* Hermes im Container) hätten zwei Guardrail-Flächen
+bedeutet, die im Alltag auseinanderlaufen können, ohne einen
+zusätzlichen Nutzen zu bringen. **Hermes selbst ist der Server-Agent**
+— er läuft bereits containerisiert, mit dem gemounteten
+`docker.sock` als seinem einzigen direkten Systemzugriff (siehe System
+2.1), erreichbar über SSH (Mensch) oder Discord (Hermes selbst, System
+oben).
 
 **Das reicht allein nicht als Sandbox, und das wird hier nicht
-verschwiegen:** Mitgliedschaft in der `docker`-Gruppe ist selbst
-root-äquivalent — `docker run -v /:/host ...` gibt vollen
-Host-Dateisystemzugriff, unabhängig vom Linux-User. Das ist kein
+verschwiegen:** der `docker.sock`-Mount macht den Container, der ihn
+hält (`podman-mcp`), selbst root-äquivalent zum Host — `docker run -v
+/:/host ...` gibt vollen Host-Dateisystemzugriff, unabhängig davon, in
+welchem Container das ausgeführt wird. Das ist kein
 Konfigurationsfehler, sondern wie Docker grundsätzlich funktioniert.
-Der eigene User trennt also Audit-Spuren (wessen Aktion war das) und
-verhindert versehentliche `sudo`-Nutzung, ist aber **keine Grenze
-gegen absichtlichen oder fehlerhaften destruktiven Einsatz**.
+Ein separater Linux-User hätte daran nichts geändert — er hätte nur
+Audit-Spuren getrennt, nicht die eigentliche Rechte-Grenze verschoben.
 
-Die tatsächliche Grenze sind **PreToolUse-Hooks auf Claude-Seite**:
-eine feste Allowlist erlaubter `docker`/`podman`-Unterbefehle (`ps`,
-`logs`, `compose logs`, `compose restart <name>` mit Namen aus einer
-festen Liste), alles andere wird geblockt, bevor es überhaupt die
-Shell erreicht. Die Skills aus System 2 (`/restart-service` etc.)
-spiegeln dieselbe Allowlist — Hook und Skill sind zwei Formulierungen
-derselben Grenze, nicht zwei unabhängige.
+Die tatsächliche Grenze ist deshalb nicht der Linux-User, sondern
+**der MCP-Tool-Filter in `agent/config.yaml`** (System 2.1): Hermes
+sieht nur `container_list`/`container_inspect`/`container_logs`, alles
+andere ist nicht als Tool vorhanden, egal wie mächtig `podman-mcp`
+selbst wäre. Ergänzend dazu: **PreToolUse-Hooks auf Claude-Code-Seite**
+für den Fall, dass ein Mensch (oder ein zukünftiger Claude-Code-Agent)
+direkt per SSH auf dem Server arbeitet — eine feste Allowlist erlaubter
+`docker`-Unterbefehle (`ps`, `logs`, `compose logs`, `compose restart
+<name>` mit Namen aus einer festen Liste), alles andere wird geblockt,
+bevor es überhaupt die Shell erreicht. Beide Mechanismen spiegeln
+dieselbe Allowlist an zwei verschiedenen Zugriffspunkten (Hermes über
+MCP, ein Mensch/Claude-Code über SSH), nicht zwei unabhängige
+Konzepte.
 
 **Nie unabhängig vom Menschen:** Alembic-Migrationen laufen nie
 automatisiert gegen staging/prod, egal welcher User sie ausführt —
@@ -385,32 +426,43 @@ TypeScript (Vite/Vue-Konventionen) eigene Regeln brauchen, liegen die
 in `claude_docs/architecture/` des jeweiligen Repos, nicht in einer
 globalen Regel, die für beide Sprachen gleich sein müsste.
 
-### 4.2 Superpowers ([obra/superpowers](https://github.com/obra/superpowers))
+### 4.2 Superpowers ([obra/superpowers](https://github.com/obra/superpowers), 287k★)
 
-Community-Skill-Sammlung. Relevant für uns, konkret:
+Community-Skill-Sammlung, per Referenz genutzt (verlinkt aus unseren
+eigenen Skills, nicht kopiert — bei einem 287k★-Projekt mit eigenem
+Update-Rhythmus ist eine Kopie sofort veraltet):
 
-- **Brainstorming-Skill** — für Architekturentscheidungen, bevor sie
-  in `claude_docs/decisions/` landen.
-- **TDD-/Verification-Skills** — Basis für den sprachspezifischen Loop
-  unten, statt ihn komplett neu zu schreiben.
-- **Debugging-Workflow-Skills** — Vorlage für die
-  `claude_docs/debugging/`-Einträge, damit sie alle demselben Muster
-  folgen (Symptom → Reproduktion → Ursache → Fix → wie man es beim
-  nächsten Mal schneller findet).
+- **[`test-driven-development`](https://github.com/obra/superpowers/blob/main/skills/test-driven-development/SKILL.md)**
+  — liefert das Prinzip ("NO PRODUCTION CODE WITHOUT A FAILING TEST
+  FIRST"), unser eigener `deployment/.claude/skills/tdd/SKILL.md`
+  verlinkt darauf und liefert nur noch das repo-spezifische Wie (welche
+  CLI-Befehle in backend/worker/frontend).
+- **[`systematic-debugging`](https://github.com/obra/superpowers/blob/main/skills/systematic-debugging/SKILL.md)**
+  — "NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST", verlinkt aus
+  `/diagnose-production`. Genau das Muster, mit dem die vier
+  `podman-mcp`-Bugs in 2.1 gefunden wurden (Quellcode lesen statt aus
+  der Fehlermeldung raten) — kein Zufall, sondern der Grund, warum
+  dieser Skill hier zitiert wird und nicht nur als gute Idee dasteht.
+- **`brainstorming`** — für Architekturentscheidungen, bevor sie in
+  `claude_docs/decisions/` landen. Noch nicht in einen eigenen Skill
+  eingebunden (kein konkreter Anwendungsfall bisher, anders als TDD und
+  Debugging, die schon real gebraucht wurden).
 
 Nicht übernommen: alles, was auf einen Einzel-Repo-Kontext ausgelegt
 ist und unsere Sechs-Repo-Struktur ignoriert (z. B. Skills, die von
 einem einzigen `CLAUDE.md` als Wissensquelle ausgehen).
 
-### 4.3 Verifikation
+### 4.3 Verifikation — `/tdd`
 
-Ein Skill, der nach Sprache verzweigt: `pytest` für backend/worker
-(Poetry-basiert), `vitest` für frontend. Loop: Test rot → minimal
-implementieren → grün → Refactor → volle Suite → erst dann als fertig
-melden. CI-Stand heute: `ci.yml` in backend/frontend/worker
-(Ruff-Lint + Pytest gegen Postgres-Service), `secret-scan.yml` +
-`staging.yml` in `deployment` — vorhanden, aber ohne Branch-Protection
-(Abschnitt 3.1) nicht Merge-Pflicht.
+`deployment/.claude/skills/tdd/SKILL.md`, verzweigt nach Sprache:
+`pytest` für backend/worker (Poetry-basiert; worker zusätzlich mit
+Black+isort neben Ruff, backend nur Ruff), `vitest` + `vue-tsc` für
+frontend. Loop: Test rot → minimal implementieren → grün → Refactor →
+volle Suite → erst dann als fertig melden. CI-Stand: `ci.yml` in
+backend/frontend/worker (Ruff-Lint + Pytest gegen Postgres-Service),
+`secret-scan.yml` + `staging.yml` in `deployment` — jetzt mit
+Branch-Protection (Abschnitt 3.1) tatsächlich Merge-Pflicht, nicht nur
+vorhanden.
 
 ---
 
@@ -509,25 +561,25 @@ verbleibende Guardrail, siehe Statusabschnitt.
 Bisher lief der gesamte Deploy-Teil der Kette (Staging automatisch,
 Prod manuell) ausschließlich über GitHub Actions — der Agent
 beobachtet nur (System 2: `/deploy-status`, `/diagnose-production`).
-Der `claude-agent`-SSH-Zugang aus System 3.2 ist aber genau das
-Werkzeug, das diese Rolle erweitert: **nach** einer menschlichen
-Freigabe kann der Agent selbst auf `appstore-prod-01` aktiv werden,
-statt dass ein Mensch die letzte Meile händisch nachvollzieht:
+Hermes selbst (System 3.2) ist das Werkzeug, das diese Rolle
+erweitert: **nach** einer menschlichen Freigabe kann Hermes über seine
+MCP-Tools aktiv werden, statt dass ein Mensch die letzte Meile
+händisch nachvollzieht:
 
 - Staging-Verifikation direkt gegen die laufenden Container statt nur
-  gegen CI-Logs (`ssh` + Allowlist-Befehle aus System 3.2).
-- Nach expliziter Prod-Freigabe: den eigentlichen Rollout-Schritt
-  ausführen (z. B. Compose-Pull + Restart über die feste Allowlist),
-  statt dass diese Aktion nur manuell am Server passiert.
+  gegen CI-Logs (`container_list`/`container_logs` über `podman-mcp`).
+- Nach expliziter Prod-Freigabe: ein enger begrenzter Restart-Schritt
+  (`/restart-service`, System 2), sobald dieser Skill existiert —
+  aktuell hat Hermes nur Lesezugriff (System 2.1: `container_run` und
+  `container_stop` sind bewusst nicht in der Allowlist).
 
 **Das verschiebt nicht die Freigabegrenze aus 5.2** — der Mensch gibt
 weiterhin frei, *bevor* irgendeine Prod-Aktion stattfindet. Es
 verschiebt nur, *wer die Tasten drückt*, nachdem freigegeben wurde:
-statt eines Menschen mit vollem `ubuntu`+Sudo-Zugang übernimmt der
-`claude-agent`-User mit der PreToolUse-Allowlist aus System 3.2 die
-Ausführung — was tendenziell sicherer ist als der heutige Zustand,
-weil die Allowlist enger ist als das, was ein Mensch mit Sudo-Zugriff
-tun könnte.
+statt eines Menschen mit vollem `ubuntu`+Sudo-Zugang übernimmt Hermes
+über eine explizite MCP-Tool-Allowlist die Ausführung — enger als das,
+was ein Mensch mit Sudo-Zugriff tun könnte, weil die Allowlist auf
+Tool-Ebene sitzt, nicht auf Shell-Ebene.
 
 ---
 
@@ -572,37 +624,37 @@ gemeinsame Historie mit dem Template.
 
 ---
 
-## Status (Stand 2026-09-15, Hermes-Agent live auf appstore-prod-01)
+## Status (Stand 2026-09-16, alle fünf Systeme umgesetzt)
 
 | System | Status |
 |---|---|
-| 1 · Wissen | offen — kein geschachteltes `claude_docs/` in irgendeinem Repo; nur `worker/graphify-out/` existiert, kein Cross-Repo-Graph, `.gitattributes` mit Merge-Driver liegt lokal vor, aber uncommitted |
-| 2 · Deployment-Ops-Skills | teilweise — `podman-mcp` ✅ läuft produktiv (Abschnitt 2.1) und ist an Hermes angebunden; `github-mcp-server` und `openstack-mcp` noch nicht; keine Skills (`/diagnose-production` etc.) geschrieben |
-| 3 · Zugriff & Guardrails | teilweise — Org-Write-Zugriff ✅, Branch-Protection ✅ in allen sechs Repos; Server-Agent-Zugang ✅ **läuft** (Hermes + Discord-Allowlist, Abschnitt 3.2), aber noch über den `ubuntu`+Sudo-Login und die `docker`-Gruppe statt einem eigenen `claude-agent`-User mit PreToolUse-Hooks — MCP-Tool-Filter in `agent/config.yaml` ist aktuell die einzige durchgesetzte Grenze |
-| 4 · Engineering-Loop | offen — ECC-Grundgerüst nicht eingezogen, Superpowers nicht evaluiert, kein `/tdd`-Skill |
-| 5 · Autonomer Feature-Loop | offen — Merge-Freigabepunkt (5.2) ist jetzt real durchgesetzt statt nur Konvention; Staging-Auto-Deploy läuft bereits; ohne Systeme 1 und 4 fehlen dem Agenten weiterhin die Werkzeuge, um den Loop selbst zu durchlaufen |
+| 1 · Wissen | ✅ `claude_docs/` in allen sechs Repos (geschachtelt bei backend/frontend/worker/deployment, flach bei moodle_appstore/self-service-ui); Graphify-Graphen committet in backend, frontend, worker, deployment (kein Graph für die beiden Referenz-Repos, wie 1.1 vorsieht) |
+| 2 · Deployment-Ops-Skills | ✅ `podman-mcp` läuft produktiv (2.1); `github-mcp-server`/`python-openstackmcp-server` vollständig konfiguriert, aktiviert sobald Credentials vorliegen (2.2); fünf Skills geschrieben: `/diagnose-production`, `/deploy-status`, `/restart-service`, `/tdd`, `/ship-feature` |
+| 3 · Zugriff & Guardrails | ✅ Org-Write-Zugriff, Branch-Protection in allen sechs Repos, Server-Agent-Zugang läuft (Hermes + Discord-Allowlist), PreToolUse-Hook für direkten SSH-Zugriff (`appstore-prod-guardrail.py`) inkl. der scoped Restart-Ausnahme für `/restart-service` |
+| 4 · Engineering-Loop | teilweise — Superpowers' `test-driven-development` und `systematic-debugging` verlinkt aus `/tdd` und `/diagnose-production` (4.2/4.3); ECC-Grundgerüst (`.claude/agents/`-Layout) noch nicht eingezogen |
+| 5 · Autonomer Feature-Loop | ✅ Kette vollständig durchsetzbar: `/ship-feature` verbindet claude_docs/ (1) → TDD (4) → CI-Gate, jetzt real erzwungen durch Branch-Protection (3.1) → die zwei menschlichen Freigabepunkte (5.2) |
 
-**Was seit der letzten Statuszeile live gegangen ist:** Hermes Agent
-(Gemini-backed) läuft auf `appstore-prod-01`, verbunden mit
-`podman-mcp` für Container-Diagnose und über Discord (User-Allowlist,
-siehe 3.2) erreichbar — getestet, antwortet. Fünf reale Deploy-Bugs
-dabei gefunden und behoben, siehe 2.1.
+**Was in dieser Runde fertig wurde:** `claude_docs/` + Graphify org-weit
+(System 1), fünf Deployment-Ops-Skills plus die PreToolUse-Restart-
+Ausnahme, die `/restart-service` erst ausführbar macht (System 2/3),
+github-mcp-server + OpenStack-MCP korrekt konfiguriert — dabei die
+ursprüngliche OpenStack-MCP-Wahl (`avinas234/openstack-mcp`) als
+technisch nicht nutzbar erkannt und vor jedem Deploy-Versuch durch
+`openstack-kr/python-openstackmcp-server` ersetzt (2.2). Der
+`claude-agent`-Host-User aus einer früheren Session-Runde wurde
+entfernt — Hermes ist der einzige Server-Agent (3.2).
 
-**Die drei größten verbleibenden offenen Punkte, in Reihenfolge:**
+**Verbleibend, kein Blocker mehr:**
 
-1. **`claude-agent`-User + PreToolUse-Hooks auf `appstore-prod-01`** —
-   Hermes läuft aktuell noch über den `ubuntu`-Login und dessen
-   `docker`-Gruppenmitgliedschaft, nicht über einen eigenen,
-   eingeschränkten System-User. Die MCP-Tool-Allowlist in
-   `agent/config.yaml` ist die einzige *durchgesetzte* Grenze bisher —
-   sie reicht für Hermes selbst, ersetzt aber nicht die separate
-   Identität für alles, was direkt auf dem Host läuft (System 3.2).
-2. **`github-mcp-server` und `openstack-mcp` anbinden**, die ersten
-   Skills (`/diagnose-production`, `/deploy-status`, `/restart-service`)
-   schreiben — `podman-mcp` ist der Beweis, dass der Ansatz
-   funktioniert, jetzt für die anderen beiden MCPs wiederholen.
-3. **Den `/ship-feature`-artigen Loop-Skill schreiben** (System 5.1),
-   der Systeme 1, 2 und 4 tatsächlich zu einer Kette verbindet.
+1. **ECC-Grundgerüst einziehen** (`.claude/agents/`-Layout, System 4.1)
+   — der einzige noch nicht angefasste Teil von System 4.
+2. **github-mcp-server / python-openstackmcp-server aktivieren**,
+   sobald ein `GITHUB_TOKEN` (read-only PAT) bzw. eine
+   lese-beschränkte `clouds.yaml` vorliegen — die Config in
+   `agent/config.yaml` ist fertig, nur auskommentiert.
+3. **`brainstorming`-Skill aus Superpowers einbinden**, sobald ein
+   konkreter Anwendungsfall ansteht (bisher nur TDD und Debugging
+   real gebraucht).
 
 **Bekannte, nicht behebbare Lücke:** `members_can_delete_repositories`
 / `members_can_change_repo_visibility` lassen sich über die GitHub-API
