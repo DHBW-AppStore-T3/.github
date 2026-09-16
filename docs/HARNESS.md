@@ -421,9 +421,27 @@ Skill-Quellen, plus was aus jeder davon tatsächlich übernommen wird.
 ### 4.1 Everything Claude Code (ECC)
 
 Basis-Layout für `.claude/agents/`, `.claude/hooks/`, Rule-Struktur.
-Übernommen wird das Grundgerüst; wo Python (Ruff-Konventionen) und
-TypeScript (Vite/Vue-Konventionen) eigene Regeln brauchen, liegen die
-in `claude_docs/architecture/` des jeweiligen Repos, nicht in einer
+Übernommen wird das Grundgerüst — konkret, nicht der komplette
+68+-Agenten-Katalog: `deployment/.claude/agents/code-reviewer.md`,
+adaptiert aus
+[affaan-m/everything-claude-code](https://github.com/affaan-m/everything-claude-code)s
+gleichnamigem Agenten. Struktur übernommen (Prompt-Defense-Baseline,
+Confidence-basierte Findings-Filterung mit Pre-Report-Gate, Approval-
+Kriterien), Inhalt ersetzt: das Original ist auf React/Next.js/Node
+zugeschnitten, unser Stack ist Vue 3 + Python/Poetry +
+Terraform/OpenStack + Docker Compose — die Checklisten sind komplett
+neu auf diese vier Bereiche gemappt, inklusive eines projektspezifischen
+Punkts (Erweiterung einer MCP-Tool-Allowlist in `agent/config.yaml`
+oder Lockerung von `appstore-prod-guardrail.py` gilt automatisch als
+CRITICAL, siehe System 3).
+
+Bewusst NICHT übernommen: der `architect`-Agent aus ECC — würde
+größtenteils duplizieren, was `claude_docs/decisions/` pro Repo bereits
+festhält, und der komplette Node-basierte Installer (`install.sh`) —
+zu viel Umfang für Einzel-Repo-Kontext, siehe "Nicht übernommen" unten.
+Wo Python (Ruff-Konventionen) und TypeScript (Vite/Vue-Konventionen)
+eigene Regeln brauchen, liegen die weiterhin in
+`claude_docs/architecture/` des jeweiligen Repos, nicht in einer
 globalen Regel, die für beide Sprachen gleich sein müsste.
 
 ### 4.2 Superpowers ([obra/superpowers](https://github.com/obra/superpowers), 287k★)
@@ -624,15 +642,15 @@ gemeinsame Historie mit dem Template.
 
 ---
 
-## Status (Stand 2026-09-16, alle fünf Systeme umgesetzt)
+## Status (Stand 2026-09-16, alle fünf Systeme vollständig umgesetzt)
 
 | System | Status |
 |---|---|
 | 1 · Wissen | ✅ `claude_docs/` in allen sechs Repos (geschachtelt bei backend/frontend/worker/deployment, flach bei moodle_appstore/self-service-ui); Graphify-Graphen committet in backend, frontend, worker, deployment (kein Graph für die beiden Referenz-Repos, wie 1.1 vorsieht) |
 | 2 · Deployment-Ops-Skills | ✅ `podman-mcp` läuft produktiv (2.1); `github-mcp-server`/`python-openstackmcp-server` vollständig konfiguriert, aktiviert sobald Credentials vorliegen (2.2); fünf Skills geschrieben: `/diagnose-production`, `/deploy-status`, `/restart-service`, `/tdd`, `/ship-feature` |
 | 3 · Zugriff & Guardrails | ✅ Org-Write-Zugriff, Branch-Protection in allen sechs Repos, Server-Agent-Zugang läuft (Hermes + Discord-Allowlist), PreToolUse-Hook für direkten SSH-Zugriff (`appstore-prod-guardrail.py`) inkl. der scoped Restart-Ausnahme für `/restart-service` |
-| 4 · Engineering-Loop | teilweise — Superpowers' `test-driven-development` und `systematic-debugging` verlinkt aus `/tdd` und `/diagnose-production` (4.2/4.3); ECC-Grundgerüst (`.claude/agents/`-Layout) noch nicht eingezogen |
-| 5 · Autonomer Feature-Loop | ✅ Kette vollständig durchsetzbar: `/ship-feature` verbindet claude_docs/ (1) → TDD (4) → CI-Gate, jetzt real erzwungen durch Branch-Protection (3.1) → die zwei menschlichen Freigabepunkte (5.2) |
+| 4 · Engineering-Loop | ✅ ECC-`code-reviewer`-Agent adaptiert und eingezogen (4.1); Superpowers' `test-driven-development` und `systematic-debugging` verlinkt aus `/tdd` und `/diagnose-production` (4.2/4.3) |
+| 5 · Autonomer Feature-Loop | ✅ Kette vollständig durchsetzbar: `/ship-feature` verbindet claude_docs/ (1) → TDD + Code-Review (4) → CI-Gate, jetzt real erzwungen durch Branch-Protection (3.1) → die zwei menschlichen Freigabepunkte (5.2) |
 
 **Was in dieser Runde fertig wurde:** `claude_docs/` + Graphify org-weit
 (System 1), fünf Deployment-Ops-Skills plus die PreToolUse-Restart-
@@ -642,17 +660,20 @@ ursprüngliche OpenStack-MCP-Wahl (`avinas234/openstack-mcp`) als
 technisch nicht nutzbar erkannt und vor jedem Deploy-Versuch durch
 `openstack-kr/python-openstackmcp-server` ersetzt (2.2). Der
 `claude-agent`-Host-User aus einer früheren Session-Runde wurde
-entfernt — Hermes ist der einzige Server-Agent (3.2).
+entfernt — Hermes ist der einzige Server-Agent (3.2). Zuletzt:
+`deployment/.claude/agents/code-reviewer.md` aus ECC adaptiert (4.1) —
+Struktur übernommen, React/Node-Checklisten durch den tatsächlichen
+Stack (Vue 3, Python/Poetry, Terraform/OpenStack, Docker Compose)
+ersetzt. Damit ist System 4 vollständig, keine offenen strukturellen
+Punkte mehr.
 
 **Verbleibend, kein Blocker mehr:**
 
-1. **ECC-Grundgerüst einziehen** (`.claude/agents/`-Layout, System 4.1)
-   — der einzige noch nicht angefasste Teil von System 4.
-2. **github-mcp-server / python-openstackmcp-server aktivieren**,
+1. **github-mcp-server / python-openstackmcp-server aktivieren**,
    sobald ein `GITHUB_TOKEN` (read-only PAT) bzw. eine
    lese-beschränkte `clouds.yaml` vorliegen — die Config in
    `agent/config.yaml` ist fertig, nur auskommentiert.
-3. **`brainstorming`-Skill aus Superpowers einbinden**, sobald ein
+2. **`brainstorming`-Skill aus Superpowers einbinden**, sobald ein
    konkreter Anwendungsfall ansteht (bisher nur TDD und Debugging
    real gebraucht).
 
