@@ -35,7 +35,7 @@ was jemand tun sollte.
 
 Zwei Werkzeuge, beide repo-lokal, beide committet.
 
-### 1.1 `claude_docs/` — tief geschachtelt, mit eingebautem Log
+### 1.1 `claude_docs/` — tief geschachtelt, mit lebendem Übergabedokument
 
 Ein flaches `claude_docs/architecture.md` reicht bei einem
 FastAPI-Backend mit Alembic-Migrationen, Celery-Aufrufen und
@@ -49,16 +49,14 @@ claude_docs/
 ├── architecture/
 │   ├── overview.md        # Module, Layering, Request-Flow
 │   ├── database.md        # Schema, Alembic-Migrationsstrategie
-│   ├── auth.md            # Keycloak-Integration, Token-Flow
-│   └── api-contracts.md   # welche Endpunkte frontend/worker konsumieren
+│   └── auth.md            # Keycloak-Integration, Token-Flow
 ├── decisions/
 │   ├── 2026-03-fastapi-vs-django.md
 │   └── ...                # ein Eintrag pro architektur-relevanter Entscheidung
 ├── debugging/
 │   ├── common-errors.md
 │   └── local-setup-gotchas.md
-└── log/
-    └── 2026-W38.md         # laufendes Änderungsprotokoll, siehe 1.2
+└── HANDOVER.md            # lebendes Übergabedokument (Single Source of Session Truth), siehe 1.2
 ```
 
 **`worker/claude_docs/`** — gleiches Muster, aber `architecture/`
@@ -66,18 +64,19 @@ verschiebt sich auf das, was dort tatsächlich komplex ist:
 ```
 architecture/
 ├── overview.md
-├── task-contracts.md       # Celery-Task-Namen + Payload-Schema, das backend aufruft
-├── queues.md                # RabbitMQ-Routing, Retry-Verhalten
-└── sse-streaming.md         # Redis-Pub/Sub → Server-Sent-Events ans Frontend
+├── queues.md              # RabbitMQ-Routing, Retry-Verhalten
+└── sse-streaming.md       # Redis-Pub/Sub → Server-Sent-Events ans Frontend
+HANDOVER.md
 ```
 
 **`frontend/claude_docs/`**
 ```
 architecture/
 ├── overview.md
-├── state.md                 # Pinia-Stores, welcher State wo lebt
-├── api-client.md             # Axios-Setup, wie Backend-Fehler gemapped werden
-└── routing.md
+├── state.md               # Pinia-Stores, welcher State wo lebt
+├── api-client.md           # Axios-Setup & OpenAPI-Typengenerierung
+├── routing.md
+└── HANDOVER.md
 ```
 
 **`deployment/claude_docs/`** — kein Code zum Debuggen, sondern
@@ -85,54 +84,87 @@ Dienste in fester Reihenfolge, deshalb andere Unterordner:
 ```
 claude_docs/
 ├── topology/
-│   ├── environments.md      # dev / staging / prod, was sie unterscheidet
-│   ├── boot-order.md        # Caddy → Keycloak → backend → worker → frontend
-│   └── networking.md        # welcher Dienst spricht mit welchem, welche Ports
+│   ├── environments.md    # dev / staging / prod, was sie unterscheidet
+│   ├── boot-order.md      # Caddy → Keycloak → backend → worker → frontend
+│   └── networking.md      # welcher Dienst spricht mit welchem, welche Ports
 ├── decisions/
 ├── rollback/
-│   ├── database.md           # Alembic-Downgrade-Pfad
-│   └── service.md            # einzelnen Container zurückrollen
-└── log/
+│   ├── database.md        # Alembic-Downgrade-Pfad
+│   └── service.md         # einzelnen Container zurückrollen
+└── HANDOVER.md
 ```
 
 `moodle_appstore` und `self-service-ui` bekommen vorerst nur ein
-flaches `claude_docs/` (architecture.md, decisions.md) — sie sind
+flaches `claude_docs/` (architecture.md, decisions.md, HANDOVER.md) — sie sind
 Referenz-/Integrationsrepos, keine aktiv weiterentwickelten
 Kernservices; das wird nachgezogen, sobald sich das ändert.
 
 Jedes root-`CLAUDE.md` bleibt dünn und verlinkt nur in die passenden
 Unterordner statt Inhalte zu duplizieren.
 
-### 1.2 `claude_docs/log/` — der GCC-Ersatz
+### 1.2 `claude_docs/HANDOVER.md` — Ein einzelnes, lebendes Übergabedokument statt wöchentlicher Logs
 
-Statt eines Git Context Controllers, der Commit-Historie nachträglich
-strukturiert: **jede Session, die etwas architekturrelevantes ändert,
-schreibt einen Eintrag in `claude_docs/log/<jahr>-W<kalenderwoche>.md`**
-(ISO-Wochennummer, z. B. `2026-W38.md`), bevor sie endet. Eine Datei
-pro Kalenderwoche statt pro Monat, weil in aktiven Wochen mehrere
-Sessions mit eigenen Einträgen zusammenkommen und eine Monatsdatei
-dann schnell unübersichtlich wird, während ruhige Wochen einfach keine
-Datei erzeugen. Ein Eintrag ist kurz — Datum, was sich geändert hat,
-warum, was der Stand am Ende war:
+Der ursprüngliche Entwurf sah wöchentliche Log-Dateien vor
+(`claude_docs/log/<jahr>-W<kalenderwoche>.md`). In der Praxis hat sich
+das als hinderlich erwiesen:
+1. **Kontext-Fragmentierung:** Ein Agent oder Entwickler zu Beginn einer
+   Session musste raten, in welcher KW die letzte Änderung lag, oder
+   mehrere Dateien durchsuchen.
+2. **Vergessene Aufgaben:** Was in KW37 offen blieb, wanderte nicht
+   automatisch in KW38 weiter und geriet aus dem Blickfeld.
+3. **Dateileichen:** Dutzende Wochenlogs blähen das Repo auf, ohne
+   Mehrwert gegenüber `git log` zu bieten.
 
-```markdown
-### 2026-09-15 — CORS_ORIGINS Fix gemerged, Remotes auf T3 korrigiert
-Lokale Remotes zeigten auf die falsche, gleichnamige Org
-(DHBW-AppStore statt DHBW-AppStore-T3). Divergenz gemerged (1 Commit
-von T3, 30 von hier), auf T3 gepusht, alle vier Remotes umgebogen.
-Stand danach: alle Repos zeigen korrekt auf DHBW-AppStore-T3.
-```
+Deshalb gilt jetzt: **Ein einzelnes, lebendes Übergabedokument pro Repo:
+`claude_docs/HANDOVER.md`**.
 
-Das löst dasselbe Problem, das GCC lösen würde — Kontext über Sessions
-hinweg, ohne dass jemand die Git-Historie durchforsten muss — aber
-ohne ein zusätzliches Tool: es ist nur Disziplin plus eine
-Ordnerkonvention. Der Unterschied zu `decisions/`: `log/` ist
-chronologisch und auch für kleinere, nicht architekturrelevante
-Ereignisse gedacht (Repo-Reparaturen, Guardrail-Änderungen,
-Recherche-Ergebnisse); `decisions/` ist thematisch und nur für Dinge,
-die eine spätere Entscheidung beeinflussen.
+- **Workflow:** Jede Session (Agent oder Mensch) liest `HANDOVER.md` als
+  *allerersten Schritt*, um sofort den aktuellen Projektzustand, offene
+  Punkte und Blocker zu erfassen. Vor dem Ende der Session wird
+  `HANDOVER.md` zwingend mit dem neuen Stand aktualisiert.
+- **Aufbau von `HANDOVER.md`:**
+  - **1. Status & Fokus:** Welcher Branch ist aktiv, was funktioniert,
+    was wurde zuletzt deployed/gemerged.
+  - **2. In Arbeit & Nächste Schritte:** Konkrete offene Punkte für die
+    folgende Session.
+  - **3. Bekannte Fallstricke & Blocker:** Kürzlich entdeckte Fallen,
+    temporäre CI-Probleme oder Umgebungsspezifika.
+  - **4. Übergabe-Historie (kompakt):** Rollierendes Protokoll der
+    letzten Sitzungen (Datum, wer, was geändert wurde). Ältere Einträge
+    werden verdichtet.
 
-### 1.3 Graphify — global über alle sechs Repos, nicht nur pro Repo
+Der Unterschied zu `decisions/`: `HANDOVER.md` ist der flüchtige,
+aktuelle Session-Kontext; `decisions/` ist thematisch und archiviert
+dauerhafte Architektur-Entscheidungen.
+
+### 1.3 API- & Task-Contracts — OpenAPI als Single Source of Truth statt Markdown
+
+Manuelle Markdown-Dateien für API-Contracts (`api-contracts.md`,
+`task-contracts.md`) sind ein bekanntes Anti-Pattern: Sie driften bereits
+nach wenigen Tagen vom echten Code ab, werden bei Refactorings vergessen
+und erzeugen doppelte Pflege ohne automatische Verifikation.
+
+Stattdessen gilt: **Code ist der Contract, OpenAPI ist die Schnittstelle.**
+
+1. **FastAPI als Single Source of Truth:**
+   Das Backend definiert alle Datenmodelle via Pydantic (`schemas.py`)
+   und alle Endpunkte via FastAPI-Router. FastAPI generiert daraus
+   nativ eine voll-spezifizierte OpenAPI-3.1-Definition (`/openapi.json`).
+2. **Automatisierter Schema-Export:**
+   Über `backend/scripts/export_openapi.py` bzw. `make openapi` kann die
+   aktuelle `openapi.json` direkt exportiert und im CI validiert werden.
+3. **Typengenerierung im Frontend:**
+   Das Frontend (`frontend/`) pflegt keine manuellen Request/Response-
+   Interfaces auf Verdacht, sondern konsumiert das generierte OpenAPI-Schema
+   (z. B. via `openapi-typescript` oder typisierte Axios-Clients). Ändert
+   das Backend ein Feld, schlägt der Frontend-Typcheck `vue-tsc` sofort
+   beim Build/Test fehl, bevor der Fehler Staging erreicht.
+4. **Celery Task Contracts (Worker):**
+   Auch für Celery-Tasks zwischen `backend` und `worker` werden keine
+   flüchtigen Markdown-Tabellen gepflegt, sondern typisierte Pydantic-
+   Payload-Modelle, die bei Deserialisierung validieren.
+
+### 1.4 Graphify — global über alle sechs Repos, nicht nur pro Repo
 
 Graphify unterstützt Cross-Repo-Graphen nativ (`merge-graphs`, jeder
 Node behält ein `repo`-Attribut). Zielstruktur:
@@ -422,7 +454,7 @@ Skill-Quellen, plus was aus jeder davon tatsächlich übernommen wird.
 
 Basis-Layout für `.claude/agents/`, `.claude/hooks/`, Rule-Struktur.
 Übernommen wird das Grundgerüst — konkret, nicht der komplette
-68+-Agenten-Katalog: `deployment/.claude/agents/code-reviewer.md`,
+68+-Agenten-Katalog: `.github/.claude/agents/code-reviewer.md`,
 adaptiert aus
 [affaan-m/everything-claude-code](https://github.com/affaan-m/everything-claude-code)s
 gleichnamigem Agenten. Struktur übernommen (Prompt-Defense-Baseline,
@@ -434,6 +466,10 @@ neu auf diese vier Bereiche gemappt, inklusive eines projektspezifischen
 Punkts (Erweiterung einer MCP-Tool-Allowlist in `agent/config.yaml`
 oder Lockerung von `appstore-prod-guardrail.py` gilt automatisch als
 CRITICAL, siehe System 3).
+
+**Ablageort:** `.github/.claude/agents/code-reviewer.md` — als universelles
+Review-Tool für alle Repos liegt der Agent zentral im `.github`-Repo der
+Organisation, nicht versteckt im `deployment`-Repo.
 
 Bewusst NICHT übernommen: der `architect`-Agent aus ECC — würde
 größtenteils duplizieren, was `claude_docs/decisions/` pro Repo bereits
@@ -452,7 +488,7 @@ Update-Rhythmus ist eine Kopie sofort veraltet):
 
 - **[`test-driven-development`](https://github.com/obra/superpowers/blob/main/skills/test-driven-development/SKILL.md)**
   — liefert das Prinzip ("NO PRODUCTION CODE WITHOUT A FAILING TEST
-  FIRST"), unser eigener `deployment/.claude/skills/tdd/SKILL.md`
+  FIRST"), unser eigener `.github/.claude/skills/tdd/SKILL.md`
   verlinkt darauf und liefert nur noch das repo-spezifische Wie (welche
   CLI-Befehle in backend/worker/frontend).
 - **[`systematic-debugging`](https://github.com/obra/superpowers/blob/main/skills/systematic-debugging/SKILL.md)**
@@ -472,7 +508,7 @@ einem einzigen `CLAUDE.md` als Wissensquelle ausgehen).
 
 ### 4.3 Verifikation — `/tdd`
 
-`deployment/.claude/skills/tdd/SKILL.md`, verzweigt nach Sprache:
+`.github/.claude/skills/tdd/SKILL.md`, verzweigt nach Sprache:
 `pytest` für backend/worker (Poetry-basiert; worker zusätzlich mit
 Black+isort neben Ruff, backend nur Ruff), `vitest` + `vue-tsc` für
 frontend. Loop: Test rot → minimal implementieren → grün → Refactor →
@@ -481,6 +517,15 @@ backend/frontend/worker (Ruff-Lint + Pytest gegen Postgres-Service),
 `secret-scan.yml` + `staging.yml` in `deployment` — jetzt mit
 Branch-Protection (Abschnitt 3.1) tatsächlich Merge-Pflicht, nicht nur
 vorhanden.
+
+**Organisations- vs. Deployment-Skills:**
+- **Universelle Entwicklungs-Skills (`.github/.claude/skills/`):**
+  `/tdd` und `/ship-feature` gelten repo-übergreifend und liegen im
+  zentralen `.github`-Repo.
+- **Host- & Deployment-spezifische Ops-Skills (`deployment/.claude/skills/`):**
+  `/deploy-status`, `/diagnose-production`, `/restart-service` und der
+  `appstore-prod-guardrail.py`-Hook steuern direkt die `appstore-prod-01`-VM
+  und Docker Compose und verbleiben deshalb im `deployment`-Repo.
 
 ---
 
@@ -623,8 +668,12 @@ wieder aufgemacht werden muss:
   Harness. Falls das später verfolgt wird, gehört es als eigener
   Abschnitt hierher, mit einem echten Vergleich statt einer Idee.
 - **GCC (Git Context Controller)** als separates Tool. Ersetzt durch
-  `claude_docs/log/` (Abschnitt 1.2) — löst dasselbe Problem ohne ein
-  zusätzliches System.
+  `claude_docs/HANDOVER.md` (Abschnitt 1.2) — ein einzelnes, lebendes
+  Übergabedokument löst dasselbe Problem ohne Kontext-Fragmentierung und
+  ohne ein zusätzliches System.
+- **Manuelle Markdown-API-Contracts** (`api-contracts.md`). Ersetzt durch
+  die automatische OpenAPI-3.1-Schnittstellengenerierung aus FastAPI
+  (Abschnitt 1.3) als Single Source of Truth.
 
 ---
 
@@ -642,40 +691,39 @@ gemeinsame Historie mit dem Template.
 
 ---
 
-## Status (Stand 2026-09-16, alle fünf Systeme vollständig umgesetzt)
+## Status (Stand 2026-09-17, modernisiertes Harness & Bereinigung)
 
 | System | Status |
 |---|---|
-| 1 · Wissen | ✅ `claude_docs/` in allen sechs Repos (geschachtelt bei backend/frontend/worker/deployment, flach bei moodle_appstore/self-service-ui); Graphify-Graphen committet in backend, frontend, worker, deployment (kein Graph für die beiden Referenz-Repos, wie 1.1 vorsieht) |
-| 2 · Deployment-Ops-Skills | ✅ `podman-mcp` läuft produktiv (2.1); `github-mcp-server`/`python-openstackmcp-server` vollständig konfiguriert, aktiviert sobald Credentials vorliegen (2.2); fünf Skills geschrieben: `/diagnose-production`, `/deploy-status`, `/restart-service`, `/tdd`, `/ship-feature` |
-| 3 · Zugriff & Guardrails | ✅ Org-Write-Zugriff, Branch-Protection in allen sechs Repos, Server-Agent-Zugang läuft (Hermes + Discord-Allowlist), PreToolUse-Hook für direkten SSH-Zugriff (`appstore-prod-guardrail.py`) inkl. der scoped Restart-Ausnahme für `/restart-service` |
-| 4 · Engineering-Loop | ✅ ECC-`code-reviewer`-Agent adaptiert und eingezogen (4.1); Superpowers' `test-driven-development` und `systematic-debugging` verlinkt aus `/tdd` und `/diagnose-production` (4.2/4.3) |
-| 5 · Autonomer Feature-Loop | ✅ Kette vollständig durchsetzbar: `/ship-feature` verbindet claude_docs/ (1) → TDD + Code-Review (4) → CI-Gate, jetzt real erzwungen durch Branch-Protection (3.1) → die zwei menschlichen Freigabepunkte (5.2) |
+| 1 · Wissen | ✅ `claude_docs/` in allen Repos; `HANDOVER.md` als lebendes Übergabedokument eingeführt (ersetzt fragmentierte Wochenlogs); OpenAPI 3.1 als automatisierte Single Source of Truth für API-Contracts; Graphify-Graphen committet |
+| 2 · Deployment-Ops-Skills | ✅ `podman-mcp` läuft produktiv (2.1); `github-mcp-server`/`python-openstackmcp-server` vollständig konfiguriert; Ops-Skills verbleiben spezifisch im `deployment`-Repo (`/diagnose-production`, `/deploy-status`, `/restart-service`) |
+| 3 · Zugriff & Guardrails | ✅ Org-Write-Zugriff, Branch-Protection in allen sechs Repos, Server-Agent-Zugang läuft (Hermes + Discord-Allowlist), PreToolUse-Hook für direkten SSH-Zugriff (`appstore-prod-guardrail.py`) |
+| 4 · Engineering-Loop | ✅ Universeller ECC-`code-reviewer`-Agent und `/tdd`-Skill ins zentrale `.github`-Repo umgezogen (`.github/.claude/`); Superpowers per Referenz eingebunden |
+| 5 · Autonomer Feature-Loop | ✅ Kette vollständig: `/ship-feature` ins zentrale `.github`-Repo umgezogen; verbindet claude_docs/ (1) → TDD + Code-Review (4) → CI-Gate (3.1) → menschliche Freigabepunkte (5.2) |
 
-**Was in dieser Runde fertig wurde:** `claude_docs/` + Graphify org-weit
-(System 1), fünf Deployment-Ops-Skills plus die PreToolUse-Restart-
-Ausnahme, die `/restart-service` erst ausführbar macht (System 2/3),
-github-mcp-server + OpenStack-MCP korrekt konfiguriert — dabei die
-ursprüngliche OpenStack-MCP-Wahl (`avinas234/openstack-mcp`) als
-technisch nicht nutzbar erkannt und vor jedem Deploy-Versuch durch
-`openstack-kr/python-openstackmcp-server` ersetzt (2.2). Der
-`claude-agent`-Host-User aus einer früheren Session-Runde wurde
-entfernt — Hermes ist der einzige Server-Agent (3.2). Zuletzt:
-`deployment/.claude/agents/code-reviewer.md` aus ECC adaptiert (4.1) —
-Struktur übernommen, React/Node-Checklisten durch den tatsächlichen
-Stack (Vue 3, Python/Poetry, Terraform/OpenStack, Docker Compose)
-ersetzt. Damit ist System 4 vollständig, keine offenen strukturellen
-Punkte mehr.
+**Was in dieser Runde fertig wurde:**
+1. **Lebendes Übergabedokument (`HANDOVER.md`):** Die fehleranfälligen,
+   fragmentierten Wochenlogs (`claude_docs/log/YYYY-Wxx.md`) wurden durch
+   ein einzelnes, lebendes Übergabedokument `claude_docs/HANDOVER.md` pro
+   Repo ersetzt. Jede Session startet dort und schließt dort ab.
+2. **OpenAPI-first statt manueller API-Contracts:** Verzicht auf veraltende
+   Markdown-Dateien (`api-contracts.md`, `task-contracts.md`). FastAPI dient
+   als Single Source of Truth mit automatisierter Schema-Generierung und
+   Export (`backend/scripts/export_openapi.py`).
+3. **Verschiebung universeller Dateien nach `.github`:** Die universellen
+   Entwickler-Werkzeuge (`code-reviewer.md`, `/tdd`, `/ship-feature`) wurden
+   aus `deployment/.claude/` in das zentrale `.github/.claude/`-Repo verschoben.
+   `deployment` behält nur die tatsächlich VM- und deploymentspezifischen
+   Ops-Skills (`/deploy-status`, `/diagnose-production`, `/restart-service`,
+   Guardrail-Hook).
 
 **Verbleibend, kein Blocker mehr:**
 
 1. **github-mcp-server / python-openstackmcp-server aktivieren**,
    sobald ein `GITHUB_TOKEN` (read-only PAT) bzw. eine
-   lese-beschränkte `clouds.yaml` vorliegen — die Config in
-   `agent/config.yaml` ist fertig, nur auskommentiert.
+   lese-beschränkte `clouds.yaml` vorliegen.
 2. **`brainstorming`-Skill aus Superpowers einbinden**, sobald ein
-   konkreter Anwendungsfall ansteht (bisher nur TDD und Debugging
-   real gebraucht).
+   konkreter Anwendungsfall ansteht.
 
 **Bekannte, nicht behebbare Lücke:** `members_can_delete_repositories`
 / `members_can_change_repo_visibility` lassen sich über die GitHub-API

@@ -71,37 +71,59 @@ for d in backend frontend worker deployment moodle_appstore self-service-ui; do
 done
 ```
 
-## 3. `claude_docs/` anlegen — geschachtelt, mit Log
+## 3. `claude_docs/` anlegen — mit lebendem Übergabedokument (HANDOVER.md)
 
 Kein flaches `claude_docs/architecture.md` — siehe `HARNESS.md`
 Abschnitt 1.1 für die volle Begründung und die genaue Struktur pro
 Repo-Typ. Kurzfassung zum Nachbauen:
 
 ```bash
-# backend, frontend, worker: architecture/ + decisions/ + debugging/ + log/
+# backend, frontend, worker: architecture/ + decisions/ + debugging/ + HANDOVER.md
 for d in backend frontend worker; do
-  mkdir -p "$d/claude_docs"/{architecture,decisions,debugging,log}
+  mkdir -p "$d/claude_docs"/{architecture,decisions,debugging}
   touch "$d/claude_docs/architecture/overview.md"
+  touch "$d/claude_docs/HANDOVER.md"
 done
 
-# deployment: topology/ statt debugging/, plus rollback/
-mkdir -p deployment/claude_docs/{topology,decisions,rollback,log}
+# deployment: topology/ statt debugging/, plus rollback/ + HANDOVER.md
+mkdir -p deployment/claude_docs/{topology,decisions,rollback}
 touch deployment/claude_docs/topology/{environments,boot-order,networking}.md
+touch deployment/claude_docs/HANDOVER.md
 
 # moodle_appstore, self-service-ui: vorerst flach, siehe HARNESS.md 1.1
 for d in moodle_appstore self-service-ui; do
   mkdir -p "$d/claude_docs"
-  touch "$d/claude_docs/architecture.md" "$d/claude_docs/decisions.md"
+  touch "$d/claude_docs/architecture.md" "$d/claude_docs/decisions.md" "$d/claude_docs/HANDOVER.md"
 done
 ```
 
-**Der Log-Ordner ist kein optionales Extra.** `claude_docs/log/<jahr>-
-W<kalenderwoche>.md` (z. B. `2026-W38.md`, ISO-Wochennummer) ist unser
-Ersatz für einen Git Context Controller — jede
-Session, die etwas architekturrelevantes ändert (auch: Guardrails
-korrigiert, ein Repo repariert, eine Recherche mit Ergebnis
-abgeschlossen), schreibt vor Sitzungsende einen kurzen Eintrag dort
-rein. Format und Beispiel: `HARNESS.md` Abschnitt 1.2.
+**`HANDOVER.md` ist das lebende Übergabedokument für jede Session:**
+Statt unübersichtlicher Wochenlogs (`2026-W38.md`), die den Kontext
+zerfasern und Aufgaben verschlucken, hat jedes Repo genau **eine**
+lebende `claude_docs/HANDOVER.md`.
+
+Jede Session (Agent oder Entwickler) liest `HANDOVER.md` zu Beginn
+zwingend als Erstes und aktualisiert sie vor Session-Ende.
+Grundstruktur:
+
+```markdown
+# Handover — <Repo-Name>
+
+## 1. Status & Fokus
+- Aktueller Branch: ...
+- Was funktioniert: ...
+- Letzter Merge / Deploy: ...
+
+## 2. In Arbeit & Nächste Schritte
+- [ ] Offener Punkt 1
+- [ ] Offener Punkt 2
+
+## 3. Bekannte Fallstricke & Blocker
+- Fallstrick / Eigenheit / Gotcha
+
+## 4. Letzte Übergaben (Historie)
+- **YYYY-MM-DD (Autor):** Kurze Zusammenfassung der getätigten Änderungen.
+```
 
 In jedes root-`CLAUDE.md` (falls noch nicht vorhanden, anlegen) gehört
 mindestens:
@@ -115,7 +137,7 @@ https://github.com/DHBW-AppStore-T3/.github/blob/main/docs/HARNESS.md
 
 Details zu diesem Repo: siehe claude_docs/architecture/,
 claude_docs/decisions/, claude_docs/debugging/ (bzw. topology/ +
-rollback/ bei deployment), claude_docs/log/
+rollback/ bei deployment), claude_docs/HANDOVER.md
 ```
 
 Das hält jede einzelne `CLAUDE.md` klein und verhindert, dass fünf
@@ -128,7 +150,7 @@ die übrigen Repos: `/graphify` im jeweiligen Repo-Root ausführen —
 das legt einen **lokalen** Graphen pro Repo an.
 
 Zusätzlich gibt es einen **globalen, Repo-übergreifenden** Graphen
-(`HARNESS.md` Abschnitt 1.3), der die sechs lokalen Graphen zu einem
+(`HARNESS.md` Abschnitt 1.4), der die sechs lokalen Graphen zu einem
 zusammenführt:
 
 ```bash
@@ -150,24 +172,45 @@ Workflow noch nicht existiert (siehe Statusabschnitt in `HARNESS.md`):
 lokale Graphen manuell pflegen, globalen Merge bei Bedarf von Hand
 ausführen.
 
-## 5. Engineering-Loop: ECC, Superpowers, TDD
+## 5. API-Contracts: OpenAPI Single Source of Truth
 
-- **Everything Claude Code (ECC)** liefert das Grundgerüst für
-  `.claude/agents/`, `.claude/hooks/`. Noch nicht eingezogen — siehe
-  Statusabschnitt in `HARNESS.md`.
-- **[Superpowers](https://github.com/obra/superpowers)** — konkret
-  genutzt werden die Brainstorming-, TDD- und
-  Debugging-Workflow-Skills daraus, siehe `HARNESS.md` Abschnitt 4.2
-  für was genau und warum.
+Keine manuellen Markdown-Listen (`api-contracts.md`) mehr! Die
+Schnittstelle ist direkt im Code definiert:
+- Im Backend erzeugt FastAPI automatisch die OpenAPI-3.1-Spezifikation.
+- Mit `make openapi` (bzw. `python scripts/export_openapi.py`) im `backend`-Repo
+  wird die aktuelle `openapi.json` generiert.
+- Das Frontend konsumiert die generierte Spezifikation für Typensicherheit
+  und API-Clients.
+
+## 6. Engineering-Loop: ECC, Superpowers, TDD
+
+Universelle Werkzeuge liegen zentral im `.github`-Repo unter `.claude/`:
+- **Code-Reviewer Agent (`.github/.claude/agents/code-reviewer.md`):**
+  Reviewt Diffs speziell für unseren Stack (Vue 3, Python/Poetry,
+  Terraform/OpenStack, Docker Compose).
+- **TDD-Skill (`.github/.claude/skills/tdd/SKILL.md`):**
+  Repo-spezifischer Red-Green-Refactor-Loop (`pytest` für Python,
+  `vitest` + `vue-tsc` für Frontend).
+- **Feature-Shipping (`.github/.claude/skills/ship-feature/SKILL.md`):**
+  Führt durch den gesamten Prozess vom Branch bis zum PR-Gate.
+
+**Lokale Einbindung:**
+Um die universellen Skills aus dem `.github`-Repo in Claude Code global
+oder in den Einzel-Repos zu nutzen, symlinke oder kopiere sie:
+```bash
+# Skills global für deinen User bereitstellen:
+mkdir -p ~/.claude/skills ~/.claude/agents
+ln -sfn "$(pwd)/.github/.claude/skills/tdd" ~/.claude/skills/tdd
+ln -sfn "$(pwd)/.github/.claude/skills/ship-feature" ~/.claude/skills/ship-feature
+ln -sfn "$(pwd)/.github/.claude/agents/code-reviewer.md" ~/.claude/agents/code-reviewer.md
+```
+
 - **Tests:** `pytest` in `backend`/`worker` (Poetry-basiert), `vitest`
   in `frontend` (`frontend/vitest.config.ts`).
+- Halte dich an den TDD-Loop: Test schreiben, der fehlschlägt → minimal
+  implementieren → Test grün → refactoren → volle Suite laufen lassen.
 
-Bis der `/tdd`-Skill existiert: halte dich manuell an den Loop — Test
-schreiben, der fehlschlägt → minimal implementieren → Test grün →
-refactoren → volle Suite laufen lassen, bevor du den Agenten etwas als
-"fertig" melden lässt.
-
-## 6. Guardrails
+## 7. Guardrails
 
 **Durchgesetzt, nicht nur Konvention:** Branch-Protection auf `main`
 ist in allen sechs Repos aktiv — Direct-Push ist technisch blockiert,
@@ -192,7 +235,7 @@ Was davon noch **nicht** technisch erzwungen ist (siehe
   (bekannte, noch ungelöste Lücke — siehe `HARNESS.md`). Sei
   entsprechend vorsichtig mit `gh repo delete` und ähnlichen Befehlen.
 
-## 7. Server-Zugriff — `appstore-prod-01`
+## 8. Server-Zugriff — `appstore-prod-01`
 
 Die Produktions-VM läuft bereits (OpenStack-Projekt
 `ma_wwi_24sea_appstore_g3`, 10 Docker-Container: nginx, frontend,
@@ -229,19 +272,14 @@ hast:
 Umlaute**. Ein falscher Hostname bricht DNS und die VM lässt sich nur
 löschen, nicht reparieren.
 
-## 8. Deployment-Ops-Skills (sobald verfügbar)
+## 9. Deployment-Ops-Skills (im `deployment`-Repo)
 
-Noch nicht angebunden (siehe Statusabschnitt in `HARNESS.md`).
-Zielbild: keine eigene MCP-Entwicklung, sondern drei bestehende
-MCP-Server plus Skills, die sie in fester Reihenfolge ansteuern —
-`github/github-mcp-server`, `manusa/podman-mcp-server`,
-`avinas234/openstack-mcp` (rein lesend). Details und Begründung für
-jeden: `HARNESS.md` Abschnitt 2.
+Die deploy- und vm-spezifischen Ops-Skills liegen in `deployment/.claude/`:
+- `/diagnose-production`: Feste Diagnosereihenfolge (Health → Logs → Deploys → OpenStack)
+- `/deploy-status`: Status Staging vs. Prod
+- `/restart-service`: Einzige erlaubte Schreibaktion, geschützt durch `deployment/.claude/hooks/appstore-prod-guardrail.py`
 
-Bis diese Skills existieren: Diagnose läuft über manuelles
-`ssh appstore-vm "docker compose logs ..."`, nie über direktes `sudo`.
-
-## 9. Der End-to-End-Loop, sobald alles steht
+## 10. Der End-to-End-Loop, sobald alles steht
 
 `HARNESS.md` Abschnitt 5 beschreibt die volle Kette: Spezifikation →
 Branch → TDD-Loop → PR → CI-Gate → **Merge (Mensch bestätigt)** →
@@ -255,13 +293,9 @@ vom Rest dieses Dokuments:
 - **Prod hat keinen Auto-Trigger** — es existiert kein Workflow, der
   bei einem Push automatisch nach Prod deployed. Das bleibt so.
 
-Was noch fehlt, ist nicht die Deploy-Automatisierung selbst, sondern
-die Werkzeuge drumherum (Systeme 1–4), die einen Agenten befähigen,
-diese Kette eigenständig bis zur Staging-Verifikation zu durchlaufen,
-statt dass ein Mensch jeden Schritt einzeln anstößt. Bis dahin bleibt
-der komplette Loop manuell — dieses Dokument ändert daran nichts, es
-beschreibt nur, wohin die einzelnen Setup-Schritte 1–8 zusammenlaufen
-sollen.
+Die Kette verbindet nun: Wissen (`claude_docs/HANDOVER.md`) →
+Entwicklungsloop (`/tdd`, `code-reviewer`) → PR & Required CI Checks →
+Staging-Deploy → Verifikation → Prod.
 
 ## Wenn etwas an diesem Setup schon wieder veraltet ist
 
