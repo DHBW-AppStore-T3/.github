@@ -390,11 +390,10 @@ User: "Bau mir Issue #<ID>"
 | 3 · Zugriff & Guardrails | ✅ Branch-Protection in allen 6 Repos; Hermes + Discord-Allowlist; `appstore-prod-guardrail.py`-Hook in `.github` und `deployment` aktiv |
 | 4 · Engineering-Loop | ✅ Plugins `superpowers` & `ecc` via Marketplace; `setup-harness.sh` für Team-Setup |
 | 5 · Die 2 Harness-Flows | ✅ Flow 1 `/user-story` + Flow 2 `/harness-workflow`; Push auf `main` rein menschlich + Test Coverage Gate |
-| 6 · GitHub Best Practices | ✅ `SECURITY.md`, `PULL_REQUEST_TEMPLATE.md`, `dependabot.yml`, `.gitignore`; 🔴 `CODEOWNERS` noch nicht committed |
+| 6 · GitHub Best Practices | ✅ `SECURITY.md`, `PULL_REQUEST_TEMPLATE.md`, `dependabot.yml`, `.gitignore` |
 
 **Verbleibend, kein Blocker:**
 1. `python-openstackmcp-server` aktivieren, sobald lese-beschränkte `clouds.yaml` vorliegt.
-2. `CODEOWNERS` committen (`docs/HARNESS.md @I751041`, analog für Skills und Settings).
 
 **Bekannte, nicht behebbare Lücke:** `members_can_delete_repositories`
 / `members_can_change_repo_visibility` lassen sich über die GitHub-API

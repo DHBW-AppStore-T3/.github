@@ -250,13 +250,11 @@ bei GitHub automatisch — kein zusätzliches manuelles Einrichten nötig:
 |---|---|
 | `SECURITY.md` | Org-weite Security Policy — wo Sicherheitslücken gemeldet werden (GitHub Security Advisories) |
 | `.github/PULL_REQUEST_TEMPLATE.md` | Wird bei jedem neuen PR in diesem Repo vorab ausgefüllt — enthält Checkliste mit HANDOVER.md-Pflicht |
-| `.github/CODEOWNERS` | Weist Änderungen an `docs/HARNESS.md`, `docs/GET_STARTED_WITH_HARNESS.md`, `.claude/skills/` und `.github/workflows/` automatisch zum Review zu |
 | `.github/dependabot.yml` | Erstellt wöchentlich automatische PRs für veraltete GitHub Actions Versionen |
 | `.gitignore` | Schützt `.env`, `*.key`, `*.pem`, `clouds.yaml` u. a. vor versehentlichem Commit |
 
 **Was das für dich bedeutet:**
 - Beim Öffnen eines PRs im `.github`-Repo wird das Template automatisch geladen — bitte ausfüllen, nicht leeren.
-- Änderungen an Harness-Kerndateien (`HARNESS.md`, Skills, Settings) lösen automatisch eine Review-Anfrage an `@I751041` aus.
 - Secrets niemals committen — das `.gitignore` ist eine Sicherheitslinie, kein Netz. Prüfe vor jedem `git add` mit `git status`.
 
 ## 9. Server-Zugriff — `appstore-prod-01` (OpenStack-Projekt
