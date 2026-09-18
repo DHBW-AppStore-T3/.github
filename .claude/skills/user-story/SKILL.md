@@ -12,7 +12,7 @@ description: "Flow 1: Interaktiver Dialog für Feature-Wünsche. Triggert auf: '
 1. **Klarifizierungsfragen:**
    - **Persona:** Für wen ist das Feature (Dozent / Student / Admin)?
    - **Scope:** Was ist minimaler Pflicht-Scope (MVP), was ist Out-of-Scope?
-   - **Betroffene Repos:** `backend`, `frontend`, `worker`, `deployment`?
+   - **Betroffene Repos:** `backend`, `frontend`, `worker`, `deployment`, `moodle_appstore`, `self-service-ui`?
    - **Randbedingungen:** Auth, Quotas, Performance, Einschränkungen?
    *-> Stoppe und warte auf Antwort.*
 
@@ -22,10 +22,10 @@ description: "Flow 1: Interaktiver Dialog für Feature-Wünsche. Triggert auf: '
    *-> Stoppe und warte auf User-Auswahl.*
 
 3. **Implementierungs-Specs (Technik):**
-   - OpenAPI 3.1 Endpoints (Method, Route, Pydantic Request/Response Schemas).
-   - DB-Modelle & Alembic-Migration.
-   - Celery-Tasks & Queues (falls asynchron).
-   - Frontend Pinia-Store, Views & Typed API Integration.
+   - API & Contracts (Endpunkte, Request/Response-Schemas).
+   - Datenmodell & Persistenz (Tabellen, Migrationen).
+   - Asynchrone Jobs / Worker (falls erforderlich).
+   - UI & Client Integration (Stores, Views, typisierte API-Clients).
    - Akzeptanzkriterien (Given-When-Then) & TDD-Testplan (Unit & Integration).
    - Biete 2 Detail-Optionen (z. B. Optimistic UI vs. Server-Confirm).
    *-> Stoppe und warte auf User-Bestätigung.*

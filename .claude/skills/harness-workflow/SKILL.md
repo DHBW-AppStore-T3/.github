@@ -11,16 +11,16 @@ Setzt ein spezifiziertes GitHub-Issue autonom via TDD um, mergt auf `dev` und ve
 
 1. **Issue analysieren:**
    - `gh issue view <id>` ausführen, Specs und Akzeptanzkriterien erfassen.
-   - Ziel-Repo öffnen, `claude_docs/HANDOVER.md` und Architektur lesen.
+   - Ziel-Repo öffnen, lokale `CLAUDE.md` und `claude_docs/HANDOVER.md` lesen.
 
 2. **Branch von `dev` erstellen:**
    - `git fetch origin dev && git checkout -b feat/issue-<id>-<slug> origin/dev`
 
 3. **TDD-Implementierung (Superpowers `tdd`):**
-   - **Rot:** Test schreiben, der fehlschlägt (`pytest tests/...` bzw. `npm run test`).
+   - **Rot:** Test schreiben, der fehlschlägt (Testbefehl aus lokaler `CLAUDE.md`).
    - **Grün:** Minimalen Code implementieren, bis Test besteht.
-   - **Refactor:** Code bereinigen, volle Testsuite & Linters ausführen.
-   - Bei API-Änderungen: `make openapi` (Backend) bzw. `npm run openapi:generate` (Frontend).
+   - **Refactor:** Code bereinigen, volle Testsuite & Linters laut lokaler `CLAUDE.md` ausführen.
+   - Bei Schnittstellenänderungen: Schema-/Codegen-Befehle laut lokaler `CLAUDE.md` ausführen.
    - Self-Review via Agent `code-reviewer` (ECC).
 
 4. **PR auf `dev`:**
