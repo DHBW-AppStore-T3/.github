@@ -1,0 +1,15 @@
+# CODEOWNERS für das .github Org-Repo
+# Änderungen an Harness-Kerndateien brauchen Review vom Harness-Owner.
+
+# Harness-Spezifikation und Setup-Guide
+docs/HARNESS.md                    @I751041
+docs/GET_STARTED_WITH_HARNESS.md   @I751041
+
+# Org-weite Flows
+.claude/skills/                    @I751041
+
+# Claude-Konfiguration
+.claude/settings.json              @I751041
+
+# GitHub-Workflows
+.github/workflows/                 @I751041

@@ -626,28 +626,28 @@ gemeinsame Historie mit dem Template.
 
 ---
 
-## Status (Stand 2026-09-18, vollständige Multi-Repo-Harmonisierung)
+## Status (Stand 2026-09-18, Harness Best Practices vollständig)
 
 | System | Status |
 |---|---|
 | 1 · Wissen | ✅ `claude_docs/` & `HANDOVER.md` in allen 6 Repos + `.github`; OpenAPI 3.1 Single Source of Truth + CI-Export + Frontend-Code-Gen (`npm run openapi:generate`); lokale Graphen + zentraler Cross-Repo-Graph (`cross-repo-graph.json`, `graph.html`) |
 | 2 · Deployment-Ops-Skills | ✅ `podman-mcp` läuft produktiv (2.1); `github-mcp-server`/`python-openstackmcp-server` vollständig konfiguriert; Ops-Skills verbleiben spezifisch im `deployment`-Repo (`/diagnose-production`, `/deploy-status`, `/restart-service`) |
-| 3 · Zugriff & Guardrails | ✅ Org-Write-Zugriff, Branch-Protection in allen sechs Repos, Server-Agent-Zugang läuft (Hermes + Discord-Allowlist), PreToolUse-Hook für direkten SSH-Zugriff (`appstore-prod-guardrail.py`), dev-Branch als Integrations-Trunk, main für Produktion mit Test Coverage Gate |
+| 3 · Zugriff & Guardrails | ✅ Org-Write-Zugriff, Branch-Protection in allen sechs Repos, Server-Agent-Zugang läuft (Hermes + Discord-Allowlist), PreToolUse-Hook für direkten SSH-Zugriff (`appstore-prod-guardrail.py`), `PreToolUse`-Hook auch in `.github`-Repo-Settings eingebunden, dev-Branch als Integrations-Trunk, main für Produktion mit Test Coverage Gate |
 | 4 · Engineering-Loop | ✅ Offizielle Plugins `superpowers` & `ecc` via Marketplace angebunden; repo-lokale `.claude/settings.json` und automatisiertes Team-Setup (`setup-harness.sh`) |
-| 5 · Die 2 Harness-Flows | ✅ Vollständig auf 2 Flows reengineered: Flow 1 (`/user-story`) für Klärungsfragen, Design- & Impl-Optionen und GitHub-Issue-Erstellung; Flow 2 (`/harness-workflow`) für autonome TDD-Umsetzung, PR auf `dev`, Auto-Merge, automatisches Staging-Deploy und Hermes Discord Reporting; Push auf `main` rein menschlich + Test Coverage Gate |
+| 5 · Die 2 Harness-Flows | ✅ Flow 1 (`/user-story`) für Klärungsfragen, Design- & Impl-Optionen und GitHub-Issue-Erstellung; Flow 2 (`/harness-workflow`) für autonome TDD-Umsetzung, PR auf `dev`, Auto-Merge, automatisches Staging-Deploy und Hermes Discord Reporting; Push auf `main` rein menschlich + Test Coverage Gate |
+| 6 · GitHub Best Practices | ✅ `SECURITY.md` (org-weite Security Policy), `PULL_REQUEST_TEMPLATE.md` (PR-Checkliste mit HANDOVER.md-Pflicht), `CODEOWNERS` (Review-Routing für Harness-Kerndateien), `dependabot.yml` (automatische Actions-Updates), `.gitignore` (Secrets-Patterns) |
 
-**Was in dieser Runde fertig wurde:**
-1. **Offene, grüne Pull Requests gemergt:**
-   Alle offenen und grünen PRs der Session (`.github #1`, `backend #3`, `deployment #33`, `frontend #3`, `self-service-ui #3`, `worker #2`, `worker #3`) erfolgreich gemergt und lokale Repos synchronisiert.
-2. **`dev`-Branch org-weit ausgerollt:**
-   Einheitlicher Integrations-Branch `dev` in allen Repositories (`.github`, `backend`, `deployment`, `frontend`, `worker`, `moodle_appstore`, `self-service-ui`) angelegt und auf Origin gepusht.
-3. **Reengineering auf 2 klare Flows:**
-   - **Flow 1: User Story Generierung (`/user-story`):** Interaktiver Dialog mit Klarifizierungsfragen, Design-Specs mit Auswahl zwischen architektonischen Optionen, Implementierungs-Specs mit Auswahl technischer Optionen und automatischer GitHub-Issue-Anlage via `gh issue create`.
-   - **Flow 2: Harness Workflow (`/harness-workflow`):** "Bau mir Issue #ID" -> Branch von `dev` -> TDD -> PR auf `dev` -> Auto-Merge bei grünen CI Gates -> automatisches Staging Deployment -> Hermes Discord Statusmeldung & System Health (GUT / SCHLECHT).
-4. **Menschliches Gate & Test Coverage Gate auf `main`:**
-   Produktionsdeploys (`main`) bleiben strikt menschlich; ein automatisiertes Test Coverage Gate stellt sicher, dass Codequalität und Testabdeckung vor Merges auf `main` nicht degradieren.
+**Was in dieser Runde fertig wurde (2026-09-18):**
+1. **GitHub Best Practices ergänzt:**
+   - `SECURITY.md` — org-weite Policy, verweist auf GitHub Security Advisories
+   - `.github/PULL_REQUEST_TEMPLATE.md` — Checkliste inkl. HANDOVER.md-Pflicht
+   - `.github/CODEOWNERS` — Review-Routing für `docs/HARNESS.md`, `docs/GET_STARTED_WITH_HARNESS.md`, `.claude/skills/`, `.claude/settings.json`, `.github/workflows/`
+   - `.github/dependabot.yml` — wöchentliche GitHub Actions Updates
+   - `.gitignore` erweitert — schützt `.env`, `*.key`, `*.pem`, `clouds.yaml` und andere Credential-Patterns
+2. **`PreToolUse`-Hook in `.github`-Repo-Settings eingebunden:**
+   `.claude/settings.json` referenziert nun den `appstore-prod-guardrail.py`-Hook aus dem `deployment`-Repo, damit der gleiche Guardrail an beiden Claude Code Einstiegspunkten (`.github` und `deployment`) aktiv ist.
 
-**Verbleibend, kein Blocker mehr:**
+**Verbleibend, kein Blocker:**
 
 1. **github-mcp-server / python-openstackmcp-server aktivieren**,
    sobald ein `GITHUB_TOKEN` (read-only PAT) bzw. eine

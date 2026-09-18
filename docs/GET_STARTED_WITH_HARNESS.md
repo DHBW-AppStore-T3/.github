@@ -241,9 +241,25 @@ Was davon noch **nicht** technisch erzwungen ist (siehe
   (bekannte, noch ungelöste Lücke — siehe `HARNESS.md`). Sei
   entsprechend vorsichtig mit `gh repo delete` und ähnlichen Befehlen.
 
-## 8. Server-Zugriff — `appstore-prod-01`
+## 8. GitHub Best Practices — was im `.github`-Repo jetzt drin ist
 
-Die Produktions-VM läuft bereits (OpenStack-Projekt
+Diese Dateien sind committetes Standard-Setup und konfigurieren sich
+bei GitHub automatisch — kein zusätzliches manuelles Einrichten nötig:
+
+| Datei | Zweck |
+|---|---|
+| `SECURITY.md` | Org-weite Security Policy — wo Sicherheitslücken gemeldet werden (GitHub Security Advisories) |
+| `.github/PULL_REQUEST_TEMPLATE.md` | Wird bei jedem neuen PR in diesem Repo vorab ausgefüllt — enthält Checkliste mit HANDOVER.md-Pflicht |
+| `.github/CODEOWNERS` | Weist Änderungen an `docs/HARNESS.md`, `docs/GET_STARTED_WITH_HARNESS.md`, `.claude/skills/` und `.github/workflows/` automatisch zum Review zu |
+| `.github/dependabot.yml` | Erstellt wöchentlich automatische PRs für veraltete GitHub Actions Versionen |
+| `.gitignore` | Schützt `.env`, `*.key`, `*.pem`, `clouds.yaml` u. a. vor versehentlichem Commit |
+
+**Was das für dich bedeutet:**
+- Beim Öffnen eines PRs im `.github`-Repo wird das Template automatisch geladen — bitte ausfüllen, nicht leeren.
+- Änderungen an Harness-Kerndateien (`HARNESS.md`, Skills, Settings) lösen automatisch eine Review-Anfrage an `@I751041` aus.
+- Secrets niemals committen — das `.gitignore` ist eine Sicherheitslinie, kein Netz. Prüfe vor jedem `git add` mit `git status`.
+
+## 9. Server-Zugriff — `appstore-prod-01` (OpenStack-Projekt
 `ma_wwi_24sea_appstore_g3`, 10 Docker-Container: nginx, frontend,
 backend, worker, keycloak, postgres ×2, rabbitmq, redis). **Das ist
 scharfe Produktion, keine Test-VM.**
@@ -278,14 +294,14 @@ hast:
 Umlaute**. Ein falscher Hostname bricht DNS und die VM lässt sich nur
 löschen, nicht reparieren.
 
-## 9. Deployment-Ops-Skills (im `deployment`-Repo)
+## 10. Deployment-Ops-Skills (im `deployment`-Repo)
 
 Die deploy- und vm-spezifischen Ops-Skills liegen in `deployment/.claude/`:
 - `/diagnose-production`: Feste Diagnosereihenfolge (Health → Logs → Deploys → OpenStack)
 - `/deploy-status`: Status Staging vs. Prod
 - `/restart-service`: Einzige erlaubte Schreibaktion, geschützt durch `deployment/.claude/hooks/appstore-prod-guardrail.py`
 
-## 10. Die 2 Flows im Entwickler-Alltag
+## 11. Die 2 Flows im Entwickler-Alltag
 
 `HARNESS.md` Abschnitt 5 beschreibt die beiden Flows im Detail:
 

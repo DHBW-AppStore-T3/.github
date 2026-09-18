@@ -16,5 +16,18 @@
   "enabledPlugins": {
     "superpowers@superpowers-marketplace": true,
     "ecc@ecc": true
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/deployment/.claude/hooks/appstore-prod-guardrail.py\""
+          }
+        ]
+      }
+    ]
   }
 }
