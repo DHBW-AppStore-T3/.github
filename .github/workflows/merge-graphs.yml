@@ -1,0 +1,62 @@
+name: "Cross-Repo Knowledge Graph Merge"
+
+on:
+  schedule:
+    # Run weekly on Sunday morning at 04:00 UTC
+    - cron: '0 4 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  merge-graphs:
+    name: "Merge Knowledge Graphs"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout .github repo
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Download graph.json from active member repos
+        run: |
+          mkdir -p /tmp/graphs
+          for repo in backend frontend worker deployment; do
+            echo "Fetching graph.json for $repo..."
+            # Try fetching graph.json from main branch via raw content API
+            curl -sSf -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://raw.githubusercontent.com/DHBW-AppStore-T3/$repo/main/graphify-out/graph.json" \
+              -o "/tmp/graphs/${repo}-graph.json" || {
+                echo "Warning: Could not fetch graph.json from $repo main, skipping."
+              }
+          done
+
+      - name: Merge graphs via graphify
+        run: |
+          # Collect all successfully downloaded graphs
+          GRAPHS=$(ls /tmp/graphs/*-graph.json 2>/dev/null || true)
+          if [ -z "$GRAPHS" ]; then
+            echo "No graphs found to merge."
+            exit 0
+          fi
+          echo "Merging graphs: $GRAPHS"
+          mkdir -p graphify-out
+          uv tool run graphifyy merge-graphs $GRAPHS --out graphify-out/cross-repo-graph.json
+          uv tool run graphifyy export html --graph graphify-out/cross-repo-graph.json
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add graphify-out/
+          if git diff --cached --quiet; then
+            echo "No changes in cross-repo graph."
+          else
+            git commit -m "docs(graphify): update cross-repo knowledge graph"
+            git push
+          fi
