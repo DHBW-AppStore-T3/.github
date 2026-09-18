@@ -445,82 +445,38 @@ immer mit expliziter menschlicher Bestätigung im selben Moment.
 
 ---
 
-## 4. Engineering-Loop — ECC und Superpowers im Detail
+## 4. Engineering-Loop — Offizielle Plugins (ECC & Superpowers) & die 2 Flows
 
-Nicht "irgendein Regelwerk", sondern zwei konkrete, bestehende
-Skill-Quellen, plus was aus jeder davon tatsächlich übernommen wird.
+Statt handgeschriebener Duplikate binden wir die offiziellen Open-Source-Plugins über das native Claude Code Plugin-System ein und verbinden sie mit unseren zwei Projekt-Flows.
 
-### 4.1 Everything Claude Code (ECC)
+### 4.1 Everything Claude Code (ECC) — Plugin `ecc@ecc`
 
-Basis-Layout für `.claude/agents/`, `.claude/hooks/`, Rule-Struktur.
-Übernommen wird das Grundgerüst — konkret, nicht der komplette
-68+-Agenten-Katalog: `.github/.claude/agents/code-reviewer.md`,
-adaptiert aus
-[affaan-m/everything-claude-code](https://github.com/affaan-m/everything-claude-code)s
-gleichnamigem Agenten. Struktur übernommen (Prompt-Defense-Baseline,
-Confidence-basierte Findings-Filterung mit Pre-Report-Gate, Approval-
-Kriterien), Inhalt ersetzt: das Original ist auf React/Next.js/Node
-zugeschnitten, unser Stack ist Vue 3 + Python/Poetry +
-Terraform/OpenStack + Docker Compose — die Checklisten sind komplett
-neu auf diese vier Bereiche gemappt, inklusive eines projektspezifischen
-Punkts (Erweiterung einer MCP-Tool-Allowlist in `agent/config.yaml`
-oder Lockerung von `appstore-prod-guardrail.py` gilt automatisch als
-CRITICAL, siehe System 3).
+Offizielles Plugin via Marketplace `https://github.com/affaan-m/ECC.git` (Affaan Mustafa).
+Liefert 68 spezialisierte Subagents (u. a. `code-reviewer`, `security-reviewer`, `architect`) und strukturierte Review-Befehle (`/code-review`, `/security-scan`).
+Wird im Flow 2 vor dem PR-Gate als automatisches Review-Werkzeug aufgerufen.
 
-**Ablageort:** `.github/.claude/agents/code-reviewer.md` — als universelles
-Review-Tool für alle Repos liegt der Agent zentral im `.github`-Repo der
-Organisation, nicht versteckt im `deployment`-Repo.
+### 4.2 Superpowers — Plugin `superpowers@superpowers-marketplace`
 
-Bewusst NICHT übernommen: der `architect`-Agent aus ECC — würde
-größtenteils duplizieren, was `claude_docs/decisions/` pro Repo bereits
-festhält, und der komplette Node-basierte Installer (`install.sh`) —
-zu viel Umfang für Einzel-Repo-Kontext, siehe "Nicht übernommen" unten.
-Wo Python (Ruff-Konventionen) und TypeScript (Vite/Vue-Konventionen)
-eigene Regeln brauchen, liegen die weiterhin in
-`claude_docs/architecture/` des jeweiligen Repos, nicht in einer
-globalen Regel, die für beide Sprachen gleich sein müsste.
+Offizielles Plugin von Jesse Vincent ([`obra/superpowers`](https://github.com/obra/superpowers)).
+Liefert bewährte Kern-Disziplinen:
+- **`test-driven-development`:** "NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST"
+- **`systematic-debugging`:** "NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST"
+- **`brainstorming`**, **`writing-plans`**, **`verification-before-completion`**
 
-### 4.2 Superpowers ([obra/superpowers](https://github.com/obra/superpowers), 287k★)
+Wird im Flow 2 direkt für die TDD-Implementierung genutzt; die konkreten Testbefehle zieht sich der Agent aus der lokalen `CLAUDE.md` des jeweiligen Sub-Repos.
 
-Community-Skill-Sammlung, per Referenz genutzt (verlinkt aus unseren
-eigenen Skills, nicht kopiert — bei einem 287k★-Projekt mit eigenem
-Update-Rhythmus ist eine Kopie sofort veraltet):
+### 4.3 Die 2 Projekt-Flows (`.github/.claude/skills/`)
 
-- **[`test-driven-development`](https://github.com/obra/superpowers/blob/main/skills/test-driven-development/SKILL.md)**
-  — liefert das Prinzip ("NO PRODUCTION CODE WITHOUT A FAILING TEST
-  FIRST"), unser eigener `.github/.claude/skills/tdd/SKILL.md`
-  verlinkt darauf und liefert nur noch das repo-spezifische Wie (welche
-  CLI-Befehle in backend/worker/frontend).
-- **[`systematic-debugging`](https://github.com/obra/superpowers/blob/main/skills/systematic-debugging/SKILL.md)**
-  — "NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST", verlinkt aus
-  `/diagnose-production`. Genau das Muster, mit dem die vier
-  `podman-mcp`-Bugs in 2.1 gefunden wurden (Quellcode lesen statt aus
-  der Fehlermeldung raten) — kein Zufall, sondern der Grund, warum
-  dieser Skill hier zitiert wird und nicht nur als gute Idee dasteht.
-- **`brainstorming`** — für Architekturentscheidungen, bevor sie in
-  `claude_docs/decisions/` landen. Noch nicht in einen eigenen Skill
-  eingebunden (kein konkreter Anwendungsfall bisher, anders als TDD und
-  Debugging, die schon real gebraucht wurden).
+Die unternehmensweiten Orchestrierungs-Skills:
+- **`/user-story` (Flow 1):** Klärungsdialog -> Spezifikationen mit Optionen -> GitHub-Issue
+- **`/harness-workflow` (Flow 2):** Autonomer Issue-Bau bis Staging-Deploy -> Hermes Discord Status
 
-Nicht übernommen: alles, was auf einen Einzel-Repo-Kontext ausgelegt
-ist und unsere Sechs-Repo-Struktur ignoriert (z. B. Skills, die von
-einem einzigen `CLAUDE.md` als Wissensquelle ausgehen).
+### 4.4 Verteilung im Team (Single Source of Truth)
 
-### 4.3 Verifikation — `/tdd`
-
-`.github/.claude/skills/tdd/SKILL.md`, verzweigt nach Sprache:
-`pytest` für backend/worker (Poetry-basiert; worker zusätzlich mit
-Black+isort neben Ruff, backend nur Ruff), `vitest` + `vue-tsc` für
-frontend. Loop: Test rot → minimal implementieren → grün → Refactor →
-volle Suite → erst dann als fertig melden. CI-Stand: `ci.yml` in
-backend/frontend/worker (Ruff-Lint + Pytest gegen Postgres-Service),
-`secret-scan.yml` + `staging.yml` in `deployment` — jetzt mit
-Branch-Protection (Abschnitt 3.1) tatsächlich Merge-Pflicht, nicht nur
-vorhanden.
-
-**Organisations- vs. Deployment-Skills:**
-- **Universelle Entwicklungs-Skills (`.github/.claude/skills/`):**
-  Die 2 Flows (`/user-story`, `/harness-workflow`) sowie die Superpowers-Core-Toolkits (`/tdd`, `/systematic-debugging`) liegen zentral im `.github`-Repo.
+- **Repo-Konfiguration (`.claude/settings.json`):**
+  In `.github` und `deployment` committet — deklariert die Marketplaces und `enabledPlugins` für Claude Code.
+- **Setup-Automatisierung (`scripts/setup-harness.sh`):**
+  Ein einziger Befehl richtet auf dem Rechner jedes Teammitglieds die Marketplaces, Plugins und Symlinks ein.
 - **Host- & Deployment-spezifische Ops-Skills (`deployment/.claude/skills/`):**
   `/deploy-status`, `/diagnose-production`, `/restart-service` und der
   `appstore-prod-guardrail.py`-Hook steuern direkt die `appstore-prod-01`-VM
@@ -677,7 +633,7 @@ gemeinsame Historie mit dem Template.
 | 1 · Wissen | ✅ `claude_docs/` & `HANDOVER.md` in allen 6 Repos + `.github`; OpenAPI 3.1 Single Source of Truth + CI-Export + Frontend-Code-Gen (`npm run openapi:generate`); lokale Graphen + zentraler Cross-Repo-Graph (`cross-repo-graph.json`, `graph.html`) |
 | 2 · Deployment-Ops-Skills | ✅ `podman-mcp` läuft produktiv (2.1); `github-mcp-server`/`python-openstackmcp-server` vollständig konfiguriert; Ops-Skills verbleiben spezifisch im `deployment`-Repo (`/diagnose-production`, `/deploy-status`, `/restart-service`) |
 | 3 · Zugriff & Guardrails | ✅ Org-Write-Zugriff, Branch-Protection in allen sechs Repos, Server-Agent-Zugang läuft (Hermes + Discord-Allowlist), PreToolUse-Hook für direkten SSH-Zugriff (`appstore-prod-guardrail.py`), dev-Branch als Integrations-Trunk, main für Produktion mit Test Coverage Gate |
-| 4 · Engineering-Loop | ✅ Universeller ECC-`code-reviewer`-Agent und `/tdd`-Skill ins zentrale `.github`-Repo umgezogen (`.github/.claude/`); Superpowers per Referenz eingebunden |
+| 4 · Engineering-Loop | ✅ Offizielle Plugins `superpowers` & `ecc` via Marketplace angebunden; repo-lokale `.claude/settings.json` und automatisiertes Team-Setup (`setup-harness.sh`) |
 | 5 · Die 2 Harness-Flows | ✅ Vollständig auf 2 Flows reengineered: Flow 1 (`/user-story`) für Klärungsfragen, Design- & Impl-Optionen und GitHub-Issue-Erstellung; Flow 2 (`/harness-workflow`) für autonome TDD-Umsetzung, PR auf `dev`, Auto-Merge, automatisches Staging-Deploy und Hermes Discord Reporting; Push auf `main` rein menschlich + Test Coverage Gate |
 
 **Was in dieser Runde fertig wurde:**
