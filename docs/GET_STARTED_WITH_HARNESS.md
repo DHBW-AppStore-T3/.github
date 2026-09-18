@@ -182,32 +182,34 @@ Schnittstelle ist direkt im Code definiert:
 - Das Frontend konsumiert die generierte Spezifikation für Typensicherheit
   und API-Clients.
 
-## 6. Die 2 Flows & Engineering-Tools: user-story, harness-workflow, TDD
+## 6. Die 2 Flows & Core Toolkits (Superpowers & ECC)
 
-Universelle Werkzeuge liegen zentral im `.github`-Repo unter `.claude/`:
+Universelle Werkzeuge liegen zentral im `.github`-Repo unter `.claude/` — modular aufgeteilt in die beiden Projekt-Flows und die bewährten Best-Practice-Toolkits:
+
+### Die 2 Projekt-Flows:
 - **Flow 1: User Story Generierung (`.github/.claude/skills/user-story/SKILL.md`):**
-  Interaktiver Dialog: Feature-Wunsch -> Klarifizierungsfragen -> Design-Specs mit Optionen zur Auswahl -> Implementierungs-Specs mit Optionen zur Auswahl -> GitHub-Issue wird automatisch angelegt.
+  Interaktiver Klärungsdialog: Feature-Wunsch -> Klarifizierungsfragen -> Design-Specs mit Optionen -> Implementierungs-Specs mit Optionen -> automatisches GitHub-Issue.
 - **Flow 2: Harness Workflow (`.github/.claude/skills/harness-workflow/SKILL.md`):**
-  "Bau mir Issue #ID" -> Branch von `dev` -> TDD-Implementierung -> PR auf `dev` -> CI Gates abwarten -> Auto-Merge auf `dev` -> Staging-Deployment -> Hermes Discord Statusmeldung & System Health (GUT / SCHLECHT).
-- **TDD-Skill (`.github/.claude/skills/tdd/SKILL.md`):**
-  Repo-spezifischer Red-Green-Refactor-Loop (`pytest` für Python, `vitest` + `vue-tsc` für Frontend).
-- **Code-Reviewer Agent (`.github/.claude/agents/code-reviewer.md`):**
-  Reviewt Diffs speziell für unseren Stack (Vue 3, Python/Poetry, Terraform/OpenStack, Docker Compose).
+  "Bau mir Issue #ID" -> Branch von `dev` -> TDD -> PR auf `dev` -> CI Gates abwarten -> Auto-Merge auf `dev` -> Staging-Deployment -> Hermes Discord Meldung & System Health.
+
+### Die Framework-Toolkits (Superpowers & ECC):
+- **Superpowers TDD (`.github/.claude/skills/tdd/SKILL.md`):**
+  Knackiger Red-Green-Refactor-Loop für Python (`pytest`) und Vue 3 (`vitest`).
+- **Superpowers Debugging (`.github/.claude/skills/systematic-debugging/SKILL.md`):**
+  4-Phasen Ursachenanalyse (kein Fix ohne belegte Root Cause).
+- **ECC Code-Reviewer Agent (`.github/.claude/agents/code-reviewer.md`):**
+  Schlanke, stack-spezifische Review-Checkliste vor dem PR-Gate (FastAPI, Vue 3, Celery, Docker, OpenStack).
 
 **Lokale Einbindung:**
-Um die universellen Skills aus dem `.github`-Repo in Claude Code global oder in den Einzel-Repos zu nutzen, symlinke oder kopiere sie:
+Um die universellen Skills aus dem `.github`-Repo in Claude Code global oder in den Einzel-Repos zu nutzen, symlinke sie:
 ```bash
-# Skills global für deinen User bereitstellen:
 mkdir -p ~/.claude/skills ~/.claude/agents
 ln -sfn "$(pwd)/.github/.claude/skills/user-story" ~/.claude/skills/user-story
 ln -sfn "$(pwd)/.github/.claude/skills/harness-workflow" ~/.claude/skills/harness-workflow
-ln -sfn "$(pwd)/.github/.claude/skills/ship-feature" ~/.claude/skills/ship-feature
 ln -sfn "$(pwd)/.github/.claude/skills/tdd" ~/.claude/skills/tdd
+ln -sfn "$(pwd)/.github/.claude/skills/systematic-debugging" ~/.claude/skills/systematic-debugging
 ln -sfn "$(pwd)/.github/.claude/agents/code-reviewer.md" ~/.claude/agents/code-reviewer.md
 ```
-
-- **Tests:** `pytest` in `backend`/`worker` (Poetry-basiert), `vitest` in `frontend` (`frontend/vitest.config.ts`).
-- Halte dich an den TDD-Loop: Test schreiben, der fehlschlägt → minimal implementieren → Test grün → refactoren → volle Suite laufen lassen.
 
 ## 7. Guardrails
 

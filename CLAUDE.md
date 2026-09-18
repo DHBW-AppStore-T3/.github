@@ -16,6 +16,6 @@ Details zu diesem Repo:
 - Lebendes Übergabedokument: `claude_docs/HANDOVER.md` (zwingend zu Beginn jeder Session lesen und vor Session-Ende aktualisieren)
 - Harness-Spezifikation: `docs/HARNESS.md`
 - Harness-Setup-Guide: `docs/GET_STARTED_WITH_HARNESS.md`
-- Universelle Skills & Agents: `.claude/skills/` (`user-story`, `harness-workflow`, `tdd`, `ship-feature`) und `.claude/agents/code-reviewer.md`
+- Universelle Skills & Agents: `.claude/skills/` (`user-story`, `harness-workflow`, `tdd`, `systematic-debugging`) und `.claude/agents/code-reviewer.md`
 - Issue Templates: `.github/ISSUE_TEMPLATE/user-story.md`
 - Cross-Repo Knowledge Graph: `graphify-out/`

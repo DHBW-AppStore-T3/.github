@@ -520,8 +520,7 @@ vorhanden.
 
 **Organisations- vs. Deployment-Skills:**
 - **Universelle Entwicklungs-Skills (`.github/.claude/skills/`):**
-  `/tdd` und `/ship-feature` gelten repo-übergreifend und liegen im
-  zentralen `.github`-Repo.
+  Die 2 Flows (`/user-story`, `/harness-workflow`) sowie die Superpowers-Core-Toolkits (`/tdd`, `/systematic-debugging`) liegen zentral im `.github`-Repo.
 - **Host- & Deployment-spezifische Ops-Skills (`deployment/.claude/skills/`):**
   `/deploy-status`, `/diagnose-production`, `/restart-service` und der
   `appstore-prod-guardrail.py`-Hook steuern direkt die `appstore-prod-01`-VM
