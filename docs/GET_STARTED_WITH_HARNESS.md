@@ -182,33 +182,32 @@ Schnittstelle ist direkt im Code definiert:
 - Das Frontend konsumiert die generierte Spezifikation für Typensicherheit
   und API-Clients.
 
-## 6. Engineering-Loop: ECC, Superpowers, TDD
+## 6. Die 2 Flows & Engineering-Tools: user-story, harness-workflow, TDD
 
 Universelle Werkzeuge liegen zentral im `.github`-Repo unter `.claude/`:
-- **Code-Reviewer Agent (`.github/.claude/agents/code-reviewer.md`):**
-  Reviewt Diffs speziell für unseren Stack (Vue 3, Python/Poetry,
-  Terraform/OpenStack, Docker Compose).
+- **Flow 1: User Story Generierung (`.github/.claude/skills/user-story/SKILL.md`):**
+  Interaktiver Dialog: Feature-Wunsch -> Klarifizierungsfragen -> Design-Specs mit Optionen zur Auswahl -> Implementierungs-Specs mit Optionen zur Auswahl -> GitHub-Issue wird automatisch angelegt.
+- **Flow 2: Harness Workflow (`.github/.claude/skills/harness-workflow/SKILL.md`):**
+  "Bau mir Issue #ID" -> Branch von `dev` -> TDD-Implementierung -> PR auf `dev` -> CI Gates abwarten -> Auto-Merge auf `dev` -> Staging-Deployment -> Hermes Discord Statusmeldung & System Health (GUT / SCHLECHT).
 - **TDD-Skill (`.github/.claude/skills/tdd/SKILL.md`):**
-  Repo-spezifischer Red-Green-Refactor-Loop (`pytest` für Python,
-  `vitest` + `vue-tsc` für Frontend).
-- **Feature-Shipping (`.github/.claude/skills/ship-feature/SKILL.md`):**
-  Führt durch den gesamten Prozess vom Branch bis zum PR-Gate.
+  Repo-spezifischer Red-Green-Refactor-Loop (`pytest` für Python, `vitest` + `vue-tsc` für Frontend).
+- **Code-Reviewer Agent (`.github/.claude/agents/code-reviewer.md`):**
+  Reviewt Diffs speziell für unseren Stack (Vue 3, Python/Poetry, Terraform/OpenStack, Docker Compose).
 
 **Lokale Einbindung:**
-Um die universellen Skills aus dem `.github`-Repo in Claude Code global
-oder in den Einzel-Repos zu nutzen, symlinke oder kopiere sie:
+Um die universellen Skills aus dem `.github`-Repo in Claude Code global oder in den Einzel-Repos zu nutzen, symlinke oder kopiere sie:
 ```bash
 # Skills global für deinen User bereitstellen:
 mkdir -p ~/.claude/skills ~/.claude/agents
-ln -sfn "$(pwd)/.github/.claude/skills/tdd" ~/.claude/skills/tdd
+ln -sfn "$(pwd)/.github/.claude/skills/user-story" ~/.claude/skills/user-story
+ln -sfn "$(pwd)/.github/.claude/skills/harness-workflow" ~/.claude/skills/harness-workflow
 ln -sfn "$(pwd)/.github/.claude/skills/ship-feature" ~/.claude/skills/ship-feature
+ln -sfn "$(pwd)/.github/.claude/skills/tdd" ~/.claude/skills/tdd
 ln -sfn "$(pwd)/.github/.claude/agents/code-reviewer.md" ~/.claude/agents/code-reviewer.md
 ```
 
-- **Tests:** `pytest` in `backend`/`worker` (Poetry-basiert), `vitest`
-  in `frontend` (`frontend/vitest.config.ts`).
-- Halte dich an den TDD-Loop: Test schreiben, der fehlschlägt → minimal
-  implementieren → Test grün → refactoren → volle Suite laufen lassen.
+- **Tests:** `pytest` in `backend`/`worker` (Poetry-basiert), `vitest` in `frontend` (`frontend/vitest.config.ts`).
+- Halte dich an den TDD-Loop: Test schreiben, der fehlschlägt → minimal implementieren → Test grün → refactoren → volle Suite laufen lassen.
 
 ## 7. Guardrails
 
@@ -279,23 +278,26 @@ Die deploy- und vm-spezifischen Ops-Skills liegen in `deployment/.claude/`:
 - `/deploy-status`: Status Staging vs. Prod
 - `/restart-service`: Einzige erlaubte Schreibaktion, geschützt durch `deployment/.claude/hooks/appstore-prod-guardrail.py`
 
-## 10. Der End-to-End-Loop, sobald alles steht
+## 10. Die 2 Flows im Entwickler-Alltag
 
-`HARNESS.md` Abschnitt 5 beschreibt die volle Kette: Spezifikation →
-Branch → TDD-Loop → PR → CI-Gate → **Merge (Mensch bestätigt)** →
-automatischer Staging-Deploy → Verifikation → **Prod-Promotion
-(Mensch bestätigt)**. Zwei Dinge davon laufen schon heute, unabhängig
-vom Rest dieses Dokuments:
+`HARNESS.md` Abschnitt 5 beschreibt die beiden Flows im Detail:
 
-- **Staging deployed bereits automatisch** bei jedem Push auf `main`
-  (`deployment/.github/workflows/staging.yml`) — das ist keine neue
-  Automatisierung, sondern längst produktiv.
-- **Prod hat keinen Auto-Trigger** — es existiert kein Workflow, der
-  bei einem Push automatisch nach Prod deployed. Das bleibt so.
+### Flow 1: User Story Generierung (`/user-story`)
+1. User formuliert Feature: `"Ich will Feature <X>"`
+2. Der Agent stellt gezielte **Klarifizierungsfragen** (Persona, Scope, betroffene Repos, Randbedingungen) -> User antwortet.
+3. Der Agent erarbeitet **Design Specs** und bietet mindestens 2 Architektur-Optionen zur Auswahl an -> User wählt Option.
+4. Der Agent erarbeitet **Implementierungs-Specs** (OpenAPI Endpunkte, DB-Modelle, Celery-Tasks, UI, TDD-Plan) und bietet technische Detailoptionen -> User wählt Option / bestätigt.
+5. Der Agent legt das Issue vollautomatisch via `gh issue create` an und gibt die Issue-Nummer `#<ID>` zurück.
 
-Die Kette verbindet nun: Wissen (`claude_docs/HANDOVER.md`) →
-Entwicklungsloop (`/tdd`, `code-reviewer`) → PR & Required CI Checks →
-Staging-Deploy → Verifikation → Prod.
+### Flow 2: Harness Workflow (`/harness-workflow`)
+1. Entwickler sagt: `"Bau mir Issue #<ID>"`
+2. Der Agent checkoutet `dev` und erstellt `feat/issue-<ID>-<slug>`.
+3. TDD-Loop: Failing Tests -> minimale Implementierung -> grün -> Refactoring -> OpenAPI-Sync (`make openapi` / `npm run openapi:generate`) -> lokale Checks.
+4. Agent öffnet PR auf `dev` (`gh pr create --base dev`).
+5. Sobald alle Required CI-Checks grün sind, führt der Agent automatisch den Merge auf `dev` durch (`gh pr merge --squash`).
+6. Staging-Deployment startet automatisch bei Push/Merge auf `dev` (`deployment/.github/workflows/staging.yml`).
+7. Hermes meldet Status in Discord: `"Feature fertig & deployed! Issue #<ID>, System Health: GUT / SCHLECHT"`.
+8. **Push auf `main` (Produktion):** Bleibt rein menschlich! Auf `main` erzwingt das **Test Coverage Gate**, dass die Testabdeckung nicht absinkt.
 
 ## Wenn etwas an diesem Setup schon wieder veraltet ist
 

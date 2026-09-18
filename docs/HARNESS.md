@@ -529,120 +529,100 @@ vorhanden.
 
 ---
 
-## 5. Autonomer Feature-Loop — die Kette, nicht nur die Teile
+## 5. Die 2 Harness-Flows — Spezifikation & Autonome Umsetzung
 
-Die Systeme 1–4 sind Fähigkeiten. Dieses System ist die **Verkettung**:
-was tatsächlich passiert, nachdem eine Anforderung spezifiziert wurde,
-bis sie geprüft im Einsatz ist — und an welchen Stellen ein Mensch
-zwingend bestehen muss, statt dass der Agent einfach weiterläuft.
+Der überarbeitete Harness operiert in **zwei klar getrennten Flows**, die Mensch und Agent optimal kombinieren:
 
-### 5.1 Der Loop
+1. **Flow 1: User Story Generierung** — Interaktiver Klärungs- und Spezifikationsdialog (`/user-story`).
+2. **Flow 2: Harness Workflow** — Autonome Umsetzung eines Issues bis Staging (`/harness-workflow`).
+
+Die Grenze zur Produktion (`main`) ist strikt definiert: **Push auf `main` machen Menschen selbst**, abgesichert durch ein automatisiertes **Test Coverage Gate**.
 
 ```
-Anforderung spezifiziert
+================================================================================
+FLOW 1: USER STORY GENERIERUNG (/user-story)
+================================================================================
+
+User: "Ich will Feature <X>"
   │
-  ├─► Branch anlegen                                  [System 1: claude_docs/ lesen — Kontext, Grenzen, bekannte Fallstricke]
+  ├─► Klarifizierungsfragen               (Persona, Problem, MVP-Scope, Repositories)
+  │     └─► User-Antwort
   │
-  ├─► TDD-Loop (System 4)                              Test rot → Implementierung → grün → Refactor
-  │     └─ bei Unklarheit: Graphify-Query (System 1)   statt Vermutung über Code-Struktur
+  ├─► Design Specs zur Implementierung
+  │     └─► Auswahl zwischen architektonischen Optionen (A vs. B mit Trade-offs)
+  │     └─► User-Auswahl
   │
-  ├─► Pull Request öffnen
+  ├─► Implementierungs-Specs
+  │     └─► Auswahl zwischen konkreten technischen Optionen (API, DB, Tasks, UI, TDD)
+  │     └─► User-Auswahl / Bestätigung
   │
-  ├─► CI-Gate (System 3.1)                             Lint + Test müssen grün sein
-  │     └─ ✅ durchgesetzt — Required-Status-Checks in Branch-Protection
+  └─► User Story fertig auf GitHub als Issue angelegt! (#<ID>)
+
+
+================================================================================
+FLOW 2: HARNESS WORKFLOW (/harness-workflow)
+================================================================================
+
+User: "Bau mir Issue #<ID>"
   │
-  ├─► Merge auf main                                   ── MENSCHLICHE FREIGABE, siehe 5.2 ──
+  ├─► Issue #<ID> einlesen & Kontext aufbauen
+  │     └─► gh issue view <ID>, claude_docs/HANDOVER.md & Architecture lesen
   │
-  ├─► Staging-Deploy — AUTOMATISCH                     bereits heute so: deployment/staging.yml
-  │     triggert bei push auf main                      läuft bei jedem Merge, kein Zutun nötig
+  ├─► Branch von `dev` erstellen
+  │     └─► git fetch origin dev && git checkout -b feat/issue-<ID>-<slug> origin/dev
   │
-  ├─► Verifikation auf Staging (System 2)               /diagnose-production gegen Staging,
-  │                                                      nicht nur gegen Prod
+  ├─► TDD implementieren (System 4)
+  │     └─► Test rot ──► Minimaler Code grün ──► Refactor
+  │     └─► Schema-Sync (make openapi / npm run openapi:generate)
+  │     └─► Lokale Verifikation (Linters, volle Test-Suite, code-reviewer Checklist)
   │
-  └─► Prod-Promotion                                   ── MENSCHLICHE FREIGABE, siehe 5.2 ──
-        kein automatischer Trigger vorhanden
-        (kein prod.yml mit push-Trigger existiert —
-         das ist heute schon so, nicht neu eingeführt)
+  ├─► PR auf `dev` öffnen
+  │     └─► gh pr create --base dev
+  │
+  ├─► CI Gates überwachen
+  │     └─► Lint, Unit-Tests, Integration-Tests, Security, Build, Image Scan
+  │     └─► Bei GRÜN: Automatisch auf `dev` mergen (gh pr merge --squash)
+  │
+  ├─► Automatisches Staging Deployment startet
+  │     └─► Push auf `dev` triggert deployment/staging.yml
+  │
+  ├─► Hermes schreibt in Discord
+  │     └─► "Feature fertig & deployed!"
+  │     └─► System Health Check: GUT / SCHLECHT (Container-Status & Endpunkte)
+  │
+  └─► MENSCHLICHES GATE: Push auf `main`
+        │
+        ├── 🛑 Nur durch Menschen ausführbar (kein automatischer Agenten-Merge auf main)
+        └── 🛡️ Test Coverage Gate aktiv (blockiert, falls Coverage unter Mindestwert fällt)
 ```
 
-Der Agent kann diesen Loop **selbstständig durchlaufen** von der
-Spezifikation bis zur Staging-Verifikation. Die Kette bricht nicht,
-weil ihm ein Werkzeug fehlt, sondern an zwei bewusst gesetzten
-Freigabepunkten.
+### 5.1 Flow 1 im Detail: User Story Generierung (`/user-story`)
 
-### 5.2 Wo ein Mensch bestehen muss, und warum genau dort
+Eine autonome Umsetzung scheitert, wenn Anforderungen mehrdeutig sind oder technische Schnittstellen nicht im Vorfeld geklärt wurden. Flow 1 formalisiert den Prozess vom Wunsch zum abnahmebereiten Issue:
 
-**Vor dem Merge auf `main`.** Nicht weil der TDD-Loop dem Agenten
-nicht zugetraut wird, sondern weil der Merge der Punkt ist, an dem
-Staging *automatisch* deployed (5.1) — ein Fehler hier pflanzt sich
-ohne weiteres Zutun fort. Ein Mensch bestätigt den PR, danach läuft
-alles bis Staging von selbst.
+1. **User sagt: "Ich will Feature <X>"** (z. B. "Ich will ein Quota-System für VM-Ressourcen").
+2. **Klarifizierungsfragen:** Der Agent fragt gezielt nach Stakeholdern (Dozent/Student/Admin), Scope-Grenzen (was gehört zum MVP, was nicht?), betroffenen Repositories und Einschränkungen.
+3. **Design Specs mit Optionen:** Der Agent analysiert die Architektur und stellt **konkrete Optionen zur Auswahl** (z. B. Option A: synchrone Prüfung in FastAPI vs. Option B: asynchrone Reservierung via Redis/Worker). Der User wählt die bevorzugte Option.
+4. **Implementierungs-Specs mit Optionen:** Der Agent konkretisiert die Schnittstellen (OpenAPI 3.1 Schemas, SQLAlchemy-Modelle, Celery-Tasks, UI-Komponenten) und bietet Detail-Optionen (z. B. Error-Handling-Strategie, Caching). Nach Bestätigung des Users:
+5. **Issue-Erstellung:** Der Agent erstellt via `gh issue create` ein vollständig strukturiertes GitHub-Issue mit Labels `user-story` und `ready-for-dev`, inklusive Akzeptanzkriterien (Definition of Done) und TDD-Testplan.
 
-**Vor der Prod-Promotion.** Staging-Verifikation durch den Agenten
-(System 2) ersetzt keine menschliche Prüfung, weil `appstore-prod-01`
-ein Live-System mit eingeschriebenem Nutzerzustand ist (Keycloak-Realm,
-laufende Deployments Dritter) — ein Rollback auf Staging kostet
-nichts, auf Prod kostet er echte Nutzungsunterbrechung.
+### 5.2 Flow 2 im Detail: Harness Workflow (`/harness-workflow`)
 
-**Nicht an weiteren Stellen.** Insbesondere nicht vor dem PR-Öffnen
-und nicht vor dem CI-Gate selbst — beides sind reversible, risikofreie
-Schritte, ein Mensch dort einzubinden würde nur Latenz ohne
-Sicherheitsgewinn hinzufügen. Genau diese Beschränkung auf zwei
-Stellen ist der Unterschied zwischen "Agent arbeitet zu" und "Agent
-läuft eigenständig los" — jede zusätzliche Freigabestufe wäre wieder
-Handarbeit unter neuem Namen.
-
-**Alembic-Migrationen sind ein Sonderfall innerhalb dieser Kette:**
-selbst wenn CI grün ist und ein Mensch den Merge freigegeben hat, läuft
-eine Schema-Migration gegen eine geteilte Datenbank (staging oder prod)
-nie ohne zusätzliche, migration-spezifische Bestätigung im selben
-Moment — das steht bereits in System 3, gilt hier unverändert weiter.
-
-### 5.3 Was das für "ohne Degradierung der Codebasis" konkret heißt
-
-Die Anforderung, dass die Codebasis dabei nicht degradiert, ist keine
-zusätzliche Regel, sondern die Summe von drei bereits bestehenden
-Systemen, hier nur einmal explizit zusammengeführt:
-
-- **System 4** stellt sicher, dass neuer Code getestet ist, bevor er
-  überhaupt einen PR erreicht.
-- **System 3.1** (Branch-Protection, ✅ gesetzt) stellt sicher, dass
-  kein Code ohne grüne CI auf `main` landet — unabhängig davon, ob ein
-  Mensch oder ein Agent den Merge-Button drückt.
-- **System 1** (`claude_docs/decisions/` + `log/`) stellt sicher, dass
-  der nächste Durchlauf des Loops — egal ob derselbe Agent in einer
-  neuen Session oder ein anderes Teammitglied — den Grund für
-  vergangene Entscheidungen kennt, statt sie versehentlich rückgängig
-  zu machen.
-
-Der zweite Punkt ist damit eine durchgesetzte Regel, keine Konvention
-mehr — der Server-Zugang (System 3.2) ist jetzt der größte
-verbleibende Guardrail, siehe Statusabschnitt.
-
-### 5.4 Der Agent als Deploy-Werkzeug, nicht nur als Zaungast
-
-Bisher lief der gesamte Deploy-Teil der Kette (Staging automatisch,
-Prod manuell) ausschließlich über GitHub Actions — der Agent
-beobachtet nur (System 2: `/deploy-status`, `/diagnose-production`).
-Hermes selbst (System 3.2) ist das Werkzeug, das diese Rolle
-erweitert: **nach** einer menschlichen Freigabe kann Hermes über seine
-MCP-Tools aktiv werden, statt dass ein Mensch die letzte Meile
-händisch nachvollzieht:
-
-- Staging-Verifikation direkt gegen die laufenden Container statt nur
-  gegen CI-Logs (`container_list`/`container_logs` über `podman-mcp`).
-- Nach expliziter Prod-Freigabe: ein enger begrenzter Restart-Schritt
-  (`/restart-service`, System 2), sobald dieser Skill existiert —
-  aktuell hat Hermes nur Lesezugriff (System 2.1: `container_run` und
-  `container_stop` sind bewusst nicht in der Allowlist).
-
-**Das verschiebt nicht die Freigabegrenze aus 5.2** — der Mensch gibt
-weiterhin frei, *bevor* irgendeine Prod-Aktion stattfindet. Es
-verschiebt nur, *wer die Tasten drückt*, nachdem freigegeben wurde:
-statt eines Menschen mit vollem `ubuntu`+Sudo-Zugang übernimmt Hermes
-über eine explizite MCP-Tool-Allowlist die Ausführung — enger als das,
-was ein Mensch mit Sudo-Zugriff tun könnte, weil die Allowlist auf
-Tool-Ebene sitzt, nicht auf Shell-Ebene.
+Sobald ein Issue existiert, startet der Entwickler den Bau:
+1. **User sagt: "Bau mir Issue #<ID>"**
+2. **Branching von `dev`:** Der Agent checkoutet `dev` (`origin/dev`) und erstellt einen isolierten Feature-Branch `feat/issue-<ID>-<slug>`.
+3. **TDD-Loop:** Der Agent schreibt zuerst fehlschlagende Unit-/Integrationstests, implementiert die minimal nötige Logik, bringt die Tests auf Grün und refactort. Bei Schnittstellenänderungen wird der OpenAPI-Contract (`make openapi`) und die Frontend-Typisierung aktualisiert.
+4. **PR auf `dev`:** Der Agent pusht den Branch und öffnet einen PR mit Zielbasis `dev`.
+5. **CI-Gates & Auto-Merge:** Die GitHub Actions laufen durch. Sobald alle Required Checks grün sind, führt der Agent den Squash-Merge auf `dev` automatisch durch.
+6. **Automatisches Staging-Deployment:** Der Merge auf `dev` stößt sofort die Staging-Pipeline (`staging.yml`) auf dem Self-Hosted Runner an.
+7. **Hermes Discord Status & System Health:** Nach Abschluss des Deployments meldet Hermes (der containerisierte Server-Agent) in Discord:
+   - Feature fertig und auf Staging bereitgestellt.
+   - Status des Deployments.
+   - **System Health:** Container-Gesundheit (z. B. 10/10 Container Up & Healthy) und HTTP-Status (GUT / SCHLECHT).
+8. **Menschliches Gate & Test Coverage Gate für `main`:**
+   - Der Agent fasst das Ergebnis zusammen und stoppt.
+   - Die Beförderung nach `main` (Produktion) bleibt **ausnahmslos dem Menschen überlassen**.
+   - Auf `main` erzwingt das **Test Coverage Gate**, dass die Testabdeckung nicht degradiert.
 
 ---
 
@@ -697,18 +677,20 @@ gemeinsame Historie mit dem Template.
 |---|---|
 | 1 · Wissen | ✅ `claude_docs/` & `HANDOVER.md` in allen 6 Repos + `.github`; OpenAPI 3.1 Single Source of Truth + CI-Export + Frontend-Code-Gen (`npm run openapi:generate`); lokale Graphen + zentraler Cross-Repo-Graph (`cross-repo-graph.json`, `graph.html`) |
 | 2 · Deployment-Ops-Skills | ✅ `podman-mcp` läuft produktiv (2.1); `github-mcp-server`/`python-openstackmcp-server` vollständig konfiguriert; Ops-Skills verbleiben spezifisch im `deployment`-Repo (`/diagnose-production`, `/deploy-status`, `/restart-service`) |
-| 3 · Zugriff & Guardrails | ✅ Org-Write-Zugriff, Branch-Protection in allen sechs Repos, Server-Agent-Zugang läuft (Hermes + Discord-Allowlist), PreToolUse-Hook für direkten SSH-Zugriff (`appstore-prod-guardrail.py`) |
+| 3 · Zugriff & Guardrails | ✅ Org-Write-Zugriff, Branch-Protection in allen sechs Repos, Server-Agent-Zugang läuft (Hermes + Discord-Allowlist), PreToolUse-Hook für direkten SSH-Zugriff (`appstore-prod-guardrail.py`), dev-Branch als Integrations-Trunk, main für Produktion mit Test Coverage Gate |
 | 4 · Engineering-Loop | ✅ Universeller ECC-`code-reviewer`-Agent und `/tdd`-Skill ins zentrale `.github`-Repo umgezogen (`.github/.claude/`); Superpowers per Referenz eingebunden |
-| 5 · Autonomer Feature-Loop | ✅ Kette vollständig: `/ship-feature` im zentralen `.github`-Repo; verbindet claude_docs/ (1) → TDD + Code-Review (4) → CI-Gate (3.1) → menschliche Freigabepunkte (5.2) |
+| 5 · Die 2 Harness-Flows | ✅ Vollständig auf 2 Flows reengineered: Flow 1 (`/user-story`) für Klärungsfragen, Design- & Impl-Optionen und GitHub-Issue-Erstellung; Flow 2 (`/harness-workflow`) für autonome TDD-Umsetzung, PR auf `dev`, Auto-Merge, automatisches Staging-Deploy und Hermes Discord Reporting; Push auf `main` rein menschlich + Test Coverage Gate |
 
 **Was in dieser Runde fertig wurde:**
-1. **Multi-Repo `claude_docs/` & `HANDOVER.md` komplettiert:**
-   Alle Repos (`backend`, `deployment`, `frontend`, `worker`, `self-service-ui`, `moodle_appstore` sowie `.github`) besitzen nun einheitlich ein schlankes `CLAUDE.md` und ein lebendes `claude_docs/HANDOVER.md`.
-2. **OpenAPI-Contract Kette geschlossen:**
-   `backend`: Schema-Validierung und Artefakt-Upload direkt im CI-Workflow (`ci.yml`).
-   `frontend`: `openapi-typescript` integriert und typensicherer Generator `npm run openapi:generate` (`src/types/api.generated.ts`) aufgesetzt.
-3. **Cross-Repo Knowledge Graph (Graphify):**
-   `worker` mit lokalem Graphen (`graphify-out/`) ausgestattet. Alle vier Kern-Graphen zu `.github/graphify-out/cross-repo-graph.json` gemergt und visualisiert (`graph.html`). Automatisierter Merge-Workflow in `.github/.github/workflows/merge-graphs.yml` hinterlegt.
+1. **Offene, grüne Pull Requests gemergt:**
+   Alle offenen und grünen PRs der Session (`.github #1`, `backend #3`, `deployment #33`, `frontend #3`, `self-service-ui #3`, `worker #2`, `worker #3`) erfolgreich gemergt und lokale Repos synchronisiert.
+2. **`dev`-Branch org-weit ausgerollt:**
+   Einheitlicher Integrations-Branch `dev` in allen Repositories (`.github`, `backend`, `deployment`, `frontend`, `worker`, `moodle_appstore`, `self-service-ui`) angelegt und auf Origin gepusht.
+3. **Reengineering auf 2 klare Flows:**
+   - **Flow 1: User Story Generierung (`/user-story`):** Interaktiver Dialog mit Klarifizierungsfragen, Design-Specs mit Auswahl zwischen architektonischen Optionen, Implementierungs-Specs mit Auswahl technischer Optionen und automatischer GitHub-Issue-Anlage via `gh issue create`.
+   - **Flow 2: Harness Workflow (`/harness-workflow`):** "Bau mir Issue #ID" -> Branch von `dev` -> TDD -> PR auf `dev` -> Auto-Merge bei grünen CI Gates -> automatisches Staging Deployment -> Hermes Discord Statusmeldung & System Health (GUT / SCHLECHT).
+4. **Menschliches Gate & Test Coverage Gate auf `main`:**
+   Produktionsdeploys (`main`) bleiben strikt menschlich; ein automatisiertes Test Coverage Gate stellt sicher, dass Codequalität und Testabdeckung vor Merges auf `main` nicht degradieren.
 
 **Verbleibend, kein Blocker mehr:**
 
