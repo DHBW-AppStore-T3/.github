@@ -691,31 +691,24 @@ gemeinsame Historie mit dem Template.
 
 ---
 
-## Status (Stand 2026-09-17, modernisiertes Harness & Bereinigung)
+## Status (Stand 2026-09-18, vollständige Multi-Repo-Harmonisierung)
 
 | System | Status |
 |---|---|
-| 1 · Wissen | ✅ `claude_docs/` in allen Repos; `HANDOVER.md` als lebendes Übergabedokument eingeführt (ersetzt fragmentierte Wochenlogs); OpenAPI 3.1 als automatisierte Single Source of Truth für API-Contracts; Graphify-Graphen committet |
+| 1 · Wissen | ✅ `claude_docs/` & `HANDOVER.md` in allen 6 Repos + `.github`; OpenAPI 3.1 Single Source of Truth + CI-Export + Frontend-Code-Gen (`npm run openapi:generate`); lokale Graphen + zentraler Cross-Repo-Graph (`cross-repo-graph.json`, `graph.html`) |
 | 2 · Deployment-Ops-Skills | ✅ `podman-mcp` läuft produktiv (2.1); `github-mcp-server`/`python-openstackmcp-server` vollständig konfiguriert; Ops-Skills verbleiben spezifisch im `deployment`-Repo (`/diagnose-production`, `/deploy-status`, `/restart-service`) |
 | 3 · Zugriff & Guardrails | ✅ Org-Write-Zugriff, Branch-Protection in allen sechs Repos, Server-Agent-Zugang läuft (Hermes + Discord-Allowlist), PreToolUse-Hook für direkten SSH-Zugriff (`appstore-prod-guardrail.py`) |
 | 4 · Engineering-Loop | ✅ Universeller ECC-`code-reviewer`-Agent und `/tdd`-Skill ins zentrale `.github`-Repo umgezogen (`.github/.claude/`); Superpowers per Referenz eingebunden |
-| 5 · Autonomer Feature-Loop | ✅ Kette vollständig: `/ship-feature` ins zentrale `.github`-Repo umgezogen; verbindet claude_docs/ (1) → TDD + Code-Review (4) → CI-Gate (3.1) → menschliche Freigabepunkte (5.2) |
+| 5 · Autonomer Feature-Loop | ✅ Kette vollständig: `/ship-feature` im zentralen `.github`-Repo; verbindet claude_docs/ (1) → TDD + Code-Review (4) → CI-Gate (3.1) → menschliche Freigabepunkte (5.2) |
 
 **Was in dieser Runde fertig wurde:**
-1. **Lebendes Übergabedokument (`HANDOVER.md`):** Die fehleranfälligen,
-   fragmentierten Wochenlogs (`claude_docs/log/YYYY-Wxx.md`) wurden durch
-   ein einzelnes, lebendes Übergabedokument `claude_docs/HANDOVER.md` pro
-   Repo ersetzt. Jede Session startet dort und schließt dort ab.
-2. **OpenAPI-first statt manueller API-Contracts:** Verzicht auf veraltende
-   Markdown-Dateien (`api-contracts.md`, `task-contracts.md`). FastAPI dient
-   als Single Source of Truth mit automatisierter Schema-Generierung und
-   Export (`backend/scripts/export_openapi.py`).
-3. **Verschiebung universeller Dateien nach `.github`:** Die universellen
-   Entwickler-Werkzeuge (`code-reviewer.md`, `/tdd`, `/ship-feature`) wurden
-   aus `deployment/.claude/` in das zentrale `.github/.claude/`-Repo verschoben.
-   `deployment` behält nur die tatsächlich VM- und deploymentspezifischen
-   Ops-Skills (`/deploy-status`, `/diagnose-production`, `/restart-service`,
-   Guardrail-Hook).
+1. **Multi-Repo `claude_docs/` & `HANDOVER.md` komplettiert:**
+   Alle Repos (`backend`, `deployment`, `frontend`, `worker`, `self-service-ui`, `moodle_appstore` sowie `.github`) besitzen nun einheitlich ein schlankes `CLAUDE.md` und ein lebendes `claude_docs/HANDOVER.md`.
+2. **OpenAPI-Contract Kette geschlossen:**
+   `backend`: Schema-Validierung und Artefakt-Upload direkt im CI-Workflow (`ci.yml`).
+   `frontend`: `openapi-typescript` integriert und typensicherer Generator `npm run openapi:generate` (`src/types/api.generated.ts`) aufgesetzt.
+3. **Cross-Repo Knowledge Graph (Graphify):**
+   `worker` mit lokalem Graphen (`graphify-out/`) ausgestattet. Alle vier Kern-Graphen zu `.github/graphify-out/cross-repo-graph.json` gemergt und visualisiert (`graph.html`). Automatisierter Merge-Workflow in `.github/.github/workflows/merge-graphs.yml` hinterlegt.
 
 **Verbleibend, kein Blocker mehr:**
 
