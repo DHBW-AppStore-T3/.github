@@ -16,12 +16,13 @@ Setzt ein spezifiziertes GitHub-Issue autonom via TDD um, mergt auf `dev` und ve
 2. **Branch von `dev` erstellen:**
    - `git fetch origin dev && git checkout -b feat/issue-<id>-<slug> origin/dev`
 
-3. **TDD-Implementierung (Superpowers `tdd`):**
-   - **Rot:** Test schreiben, der fehlschlägt (Testbefehl aus lokaler `CLAUDE.md`).
-   - **Grün:** Minimalen Code implementieren, bis Test besteht.
-   - **Refactor:** Code bereinigen, volle Testsuite & Linters laut lokaler `CLAUDE.md` ausführen.
+3. **TDD-Implementierung (Plugins `superpowers` & `ecc`):**
+   - Folge dem TDD-Workflow des installierten `superpowers`-Plugins (`test-driven-development`):
+     - **Rot:** Test schreiben, der fehlschlägt (Testbefehl aus lokaler `CLAUDE.md`).
+     - **Grün:** Minimalen Code implementieren, bis Test besteht.
+     - **Refactor:** Code bereinigen, volle Testsuite & Linters laut lokaler `CLAUDE.md` ausführen.
    - Bei Schnittstellenänderungen: Schema-/Codegen-Befehle laut lokaler `CLAUDE.md` ausführen.
-   - Self-Review via Agent `code-reviewer` (ECC).
+   - Self-Review vor PR via installiertem `ecc`-Plugin: `/code-review` (Agent `code-reviewer`).
 
 4. **PR auf `dev`:**
    - `git push -u origin feat/issue-<id>-<slug>`
