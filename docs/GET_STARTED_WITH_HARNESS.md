@@ -182,33 +182,39 @@ Schnittstelle ist direkt im Code definiert:
 - Das Frontend konsumiert die generierte Spezifikation für Typensicherheit
   und API-Clients.
 
-## 6. Engineering-Loop: ECC, Superpowers, TDD
+## 6. Offizielle Open-Source Plugins (Superpowers & ECC) & die 2 Projekt-Flows
 
-Universelle Werkzeuge liegen zentral im `.github`-Repo unter `.claude/`:
-- **Code-Reviewer Agent (`.github/.claude/agents/code-reviewer.md`):**
-  Reviewt Diffs speziell für unseren Stack (Vue 3, Python/Poetry,
-  Terraform/OpenStack, Docker Compose).
-- **TDD-Skill (`.github/.claude/skills/tdd/SKILL.md`):**
-  Repo-spezifischer Red-Green-Refactor-Loop (`pytest` für Python,
-  `vitest` + `vue-tsc` für Frontend).
-- **Feature-Shipping (`.github/.claude/skills/ship-feature/SKILL.md`):**
-  Führt durch den gesamten Prozess vom Branch bis zum PR-Gate.
+Unser Team setzt direkt auf die **offiziellen Open-Source-Plugins** von Claude Code, kombiniert mit unseren maßgeschneiderten AppStore-Flows:
 
-**Lokale Einbindung:**
-Um die universellen Skills aus dem `.github`-Repo in Claude Code global
-oder in den Einzel-Repos zu nutzen, symlinke oder kopiere sie:
+### 1. Offizielle Open-Source-Plugins:
+- **`superpowers@superpowers-marketplace` ([`obra/superpowers`](https://github.com/obra/superpowers)):**
+  Kern-Engineering-Tools: TDD (`test-driven-development`), 4-Phasen Ursachenanalyse (`systematic-debugging`), Brainstorming, Planning und Verification.
+- **`ecc@ecc` ([`affaan-m/ECC`](https://github.com/affaan-m/ECC)):**
+  Spezialisierte Agenten & Review-Layer: Automatisierter Pre-PR Code-Reviewer (`code-reviewer`, `/code-review`), Security-Checks (`security-reviewer`, `/security-scan`), Architekten- und Framework-Rollen.
+
+### 2. Die 2 DHBW-AppStore Projekt-Flows (in `.github/.claude/skills/`):
+- **Flow 1: User Story Generierung (`/user-story`):**
+  Interaktiver Klärungsdialog: Feature-Wunsch -> Klarifizierungsfragen -> Design-Specs mit Optionen -> Implementierungs-Specs mit Optionen -> automatisches GitHub-Issue.
+- **Flow 2: Harness Workflow (`/harness-workflow`):**
+  "Bau mir Issue #ID" -> Branch von `dev` -> TDD (via Superpowers-Plugin) -> Pre-PR Review (via ECC Agent) -> PR auf `dev` -> CI Gates abwarten -> Auto-Merge auf `dev` -> Staging-Deployment -> Hermes Discord Meldung & System Health.
+
+### Automatisches Setup für jedes Teammitglied:
+Führe nach dem Klonen einfach das Setup-Skript im `.github`-Repo aus:
 ```bash
-# Skills global für deinen User bereitstellen:
-mkdir -p ~/.claude/skills ~/.claude/agents
-ln -sfn "$(pwd)/.github/.claude/skills/tdd" ~/.claude/skills/tdd
-ln -sfn "$(pwd)/.github/.claude/skills/ship-feature" ~/.claude/skills/ship-feature
-ln -sfn "$(pwd)/.github/.claude/agents/code-reviewer.md" ~/.claude/agents/code-reviewer.md
+./.github/scripts/setup-harness.sh
 ```
+Das Skript fügt automatisch die Marketplaces (`superpowers-marketplace`, `ecc`) hinzu, installiert die Plugins und verlinkt die beiden AppStore-Flows nach `~/.claude/skills/`.
 
-- **Tests:** `pytest` in `backend`/`worker` (Poetry-basiert), `vitest`
-  in `frontend` (`frontend/vitest.config.ts`).
-- Halte dich an den TDD-Loop: Test schreiben, der fehlschlägt → minimal
-  implementieren → Test grün → refactoren → volle Suite laufen lassen.
+*(Alternativ manuell über Claude Code CLI:)*
+```bash
+claude plugin marketplace add obra/superpowers-marketplace
+claude plugin marketplace add https://github.com/affaan-m/ECC
+claude plugin install superpowers@superpowers-marketplace
+claude plugin install ecc@ecc
+mkdir -p ~/.claude/skills
+ln -sfn "$(pwd)/.github/.claude/skills/user-story" ~/.claude/skills/user-story
+ln -sfn "$(pwd)/.github/.claude/skills/harness-workflow" ~/.claude/skills/harness-workflow
+```
 
 ## 7. Guardrails
 
@@ -235,9 +241,23 @@ Was davon noch **nicht** technisch erzwungen ist (siehe
   (bekannte, noch ungelöste Lücke — siehe `HARNESS.md`). Sei
   entsprechend vorsichtig mit `gh repo delete` und ähnlichen Befehlen.
 
-## 8. Server-Zugriff — `appstore-prod-01`
+## 8. GitHub Best Practices — was im `.github`-Repo jetzt drin ist
 
-Die Produktions-VM läuft bereits (OpenStack-Projekt
+Diese Dateien sind committetes Standard-Setup und konfigurieren sich
+bei GitHub automatisch — kein zusätzliches manuelles Einrichten nötig:
+
+| Datei | Zweck |
+|---|---|
+| `SECURITY.md` | Org-weite Security Policy — wo Sicherheitslücken gemeldet werden (GitHub Security Advisories) |
+| `.github/PULL_REQUEST_TEMPLATE.md` | Wird bei jedem neuen PR in diesem Repo vorab ausgefüllt — enthält Checkliste mit HANDOVER.md-Pflicht |
+| `.github/dependabot.yml` | Erstellt wöchentlich automatische PRs für veraltete GitHub Actions Versionen |
+| `.gitignore` | Schützt `.env`, `*.key`, `*.pem`, `clouds.yaml` u. a. vor versehentlichem Commit |
+
+**Was das für dich bedeutet:**
+- Beim Öffnen eines PRs im `.github`-Repo wird das Template automatisch geladen — bitte ausfüllen, nicht leeren.
+- Secrets niemals committen — das `.gitignore` ist eine Sicherheitslinie, kein Netz. Prüfe vor jedem `git add` mit `git status`.
+
+## 9. Server-Zugriff — `appstore-prod-01` (OpenStack-Projekt
 `ma_wwi_24sea_appstore_g3`, 10 Docker-Container: nginx, frontend,
 backend, worker, keycloak, postgres ×2, rabbitmq, redis). **Das ist
 scharfe Produktion, keine Test-VM.**
@@ -272,30 +292,33 @@ hast:
 Umlaute**. Ein falscher Hostname bricht DNS und die VM lässt sich nur
 löschen, nicht reparieren.
 
-## 9. Deployment-Ops-Skills (im `deployment`-Repo)
+## 10. Deployment-Ops-Skills (im `deployment`-Repo)
 
 Die deploy- und vm-spezifischen Ops-Skills liegen in `deployment/.claude/`:
 - `/diagnose-production`: Feste Diagnosereihenfolge (Health → Logs → Deploys → OpenStack)
 - `/deploy-status`: Status Staging vs. Prod
 - `/restart-service`: Einzige erlaubte Schreibaktion, geschützt durch `deployment/.claude/hooks/appstore-prod-guardrail.py`
 
-## 10. Der End-to-End-Loop, sobald alles steht
+## 11. Die 2 Flows im Entwickler-Alltag
 
-`HARNESS.md` Abschnitt 5 beschreibt die volle Kette: Spezifikation →
-Branch → TDD-Loop → PR → CI-Gate → **Merge (Mensch bestätigt)** →
-automatischer Staging-Deploy → Verifikation → **Prod-Promotion
-(Mensch bestätigt)**. Zwei Dinge davon laufen schon heute, unabhängig
-vom Rest dieses Dokuments:
+`HARNESS.md` Abschnitt 5 beschreibt die beiden Flows im Detail:
 
-- **Staging deployed bereits automatisch** bei jedem Push auf `main`
-  (`deployment/.github/workflows/staging.yml`) — das ist keine neue
-  Automatisierung, sondern längst produktiv.
-- **Prod hat keinen Auto-Trigger** — es existiert kein Workflow, der
-  bei einem Push automatisch nach Prod deployed. Das bleibt so.
+### Flow 1: User Story Generierung (`/user-story`)
+1. User formuliert Feature: `"Ich will Feature <X>"`
+2. Der Agent stellt gezielte **Klarifizierungsfragen** (Persona, Scope, betroffene Repos, Randbedingungen) -> User antwortet.
+3. Der Agent erarbeitet **Design Specs** und bietet mindestens 2 Architektur-Optionen zur Auswahl an -> User wählt Option.
+4. Der Agent erarbeitet **Implementierungs-Specs** (OpenAPI Endpunkte, DB-Modelle, Celery-Tasks, UI, TDD-Plan) und bietet technische Detailoptionen -> User wählt Option / bestätigt.
+5. Der Agent legt das Issue vollautomatisch via `gh issue create` an und gibt die Issue-Nummer `#<ID>` zurück.
 
-Die Kette verbindet nun: Wissen (`claude_docs/HANDOVER.md`) →
-Entwicklungsloop (`/tdd`, `code-reviewer`) → PR & Required CI Checks →
-Staging-Deploy → Verifikation → Prod.
+### Flow 2: Harness Workflow (`/harness-workflow`)
+1. Entwickler sagt: `"Bau mir Issue #<ID>"`
+2. Der Agent checkoutet `dev` und erstellt `feat/issue-<ID>-<slug>`.
+3. TDD-Loop: Failing Tests -> minimale Implementierung -> grün -> Refactoring -> OpenAPI-Sync (`make openapi` / `npm run openapi:generate`) -> lokale Checks.
+4. Agent öffnet PR auf `dev` (`gh pr create --base dev`).
+5. Sobald alle Required CI-Checks grün sind, führt der Agent automatisch den Merge auf `dev` durch (`gh pr merge --squash`).
+6. Staging-Deployment startet automatisch bei Push/Merge auf `dev` (`deployment/.github/workflows/staging.yml`).
+7. Hermes meldet Status in Discord: `"Feature fertig & deployed! Issue #<ID>, System Health: GUT / SCHLECHT"`.
+8. **Push auf `main` (Produktion):** Bleibt rein menschlich! Auf `main` erzwingt das **Test Coverage Gate**, dass die Testabdeckung nicht absinkt.
 
 ## Wenn etwas an diesem Setup schon wieder veraltet ist
 
