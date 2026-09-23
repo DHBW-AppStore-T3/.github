@@ -192,7 +192,19 @@ Universelle Werkzeuge liegen zentral im `.github`-Repo unter `.claude/`:
   Repo-spezifischer Red-Green-Refactor-Loop (`pytest` für Python,
   `vitest` + `vue-tsc` für Frontend).
 - **Feature-Shipping (`.github/.claude/skills/ship-feature/SKILL.md`):**
-  Führt durch den gesamten Prozess vom Branch bis zum PR-Gate.
+  Führt durch den gesamten Prozess vom Branch bis zum Merge. Mergt
+  autonom in `dev` (→ Staging) sobald CI grün ist. STOP vor `main`
+  (→ Prod) — das ist immer eine menschliche Entscheidung.
+
+**Prozess 1 — Issue Creation** läuft über vier Skills in
+`deployment/.claude/skills/`:
+- `/issue-creation` — Klarifizierung → Brainstorming → Design Spec →
+  Impl Spec → Freigabe (STOP) → `gh issue create`
+- `/brainstorming` — Cross-Repo-Analyse (Graphify + OpenAPI), Optionen
+  mit Trade-offs, Superpowers-linked
+- `/design-spec` — Was wird gebaut? OpenAPI-first, kein Placeholder
+- `/implementation-spec` — Wie wird es gebaut? Zero placeholders, jede
+  Task mit eigenem Testschritt
 
 **Lokale Einbindung:**
 Um die universellen Skills aus dem `.github`-Repo in Claude Code global
@@ -247,14 +259,14 @@ in `authorized_keys` hinterlegt, frag im Team um Zugang). Dieser User
 hat passwortlosen Sudo — sei entsprechend vorsichtig, jeder Befehl
 läuft effektiv als root.
 
-**Für einen Agenten gilt das nicht.** Ein Agent (egal ob lokal
-gestartet und per SSH auf die VM zugreifend, oder direkt auf der VM
-laufend) darf **nicht** den `ubuntu`-User verwenden. Solange der in
-`HARNESS.md` beschriebene `claude-agent`-User samt PreToolUse-Hooks
-noch nicht existiert, gilt: keine schreibenden Aktionen eines Agenten
-gegen `appstore-prod-01`, nur Lesen (Logs, Health, `docker ps`) über
-den `ubuntu`-Zugang, alles Schreibende geht über die reguläre
-CI/CD-Pipeline in `deployment/`.
+**Für einen Agenten gilt das nicht.** Der einzige Server-Agent ist
+**Hermes** — er läuft containerisiert auf der VM und kommuniziert über
+Discord (Allowlist: `DISCORD_ALLOWED_USERS`). Ein separater
+`claude-agent`-Host-User wurde bewusst verworfen (siehe `HARNESS.md`
+Abschnitt 3.2). Der Coding-Agent (Claude Code auf deinem Rechner) hat
+keinen direkten SSH-Zugriff auf `appstore-prod-01` — alles Schreibende
+läuft über die CI/CD-Pipeline oder über Hermes nach expliziter
+menschlicher Freigabe.
 
 Falls du selbst noch keinen OpenStack-Zugriff (nicht denselben wie
 SSH-auf-die-VM, sondern für Terraform/die OpenStack-API) eingerichtet
@@ -274,28 +286,39 @@ löschen, nicht reparieren.
 
 ## 9. Deployment-Ops-Skills (im `deployment`-Repo)
 
-Die deploy- und vm-spezifischen Ops-Skills liegen in `deployment/.claude/`:
-- `/diagnose-production`: Feste Diagnosereihenfolge (Health → Logs → Deploys → OpenStack)
-- `/deploy-status`: Status Staging vs. Prod
-- `/restart-service`: Einzige erlaubte Schreibaktion, geschützt durch `deployment/.claude/hooks/appstore-prod-guardrail.py`
+Die deploy- und vm-spezifischen Ops-Skills liegen in `deployment/.claude/skills/`:
+- `/diagnose-production` — Feste Diagnosereihenfolge (Health → Logs → Deploys → OpenStack)
+- `/deploy-status` — Status Staging vs. Prod
+- `/restart-service` — Einzige erlaubte Schreibaktion auf der VM, geschützt durch `appstore-prod-guardrail.py`
+- `/verify-staging` — Nach einem Merge in `dev`: postet `@hermes /verify-staging`
+  als Comment auf den PR; Hermes prüft Container-Health und postet das Ergebnis auf Discord
 
-## 10. Der End-to-End-Loop, sobald alles steht
+## 10. Der vollständige End-to-End-Loop
 
-`HARNESS.md` Abschnitt 5 beschreibt die volle Kette: Spezifikation →
-Branch → TDD-Loop → PR → CI-Gate → **Merge (Mensch bestätigt)** →
-automatischer Staging-Deploy → Verifikation → **Prod-Promotion
-(Mensch bestätigt)**. Zwei Dinge davon laufen schon heute, unabhängig
-vom Rest dieses Dokuments:
+Zwei Prozesse tragen eine Anforderung von der Idee bis in Prod:
 
-- **Staging deployed bereits automatisch** bei jedem Push auf `main`
-  (`deployment/.github/workflows/staging.yml`) — das ist keine neue
-  Automatisierung, sondern längst produktiv.
-- **Prod hat keinen Auto-Trigger** — es existiert kein Workflow, der
-  bei einem Push automatisch nach Prod deployed. Das bleibt so.
+**Prozess 1 — Issue Creation (Wunsch → freigegebenes Issue):**
+```
+/issue-creation → Klarifizierung (STOP) → /brainstorming →
+/design-spec + /implementation-spec → Freigabe (STOP) → gh issue create
+```
 
-Die Kette verbindet nun: Wissen (`claude_docs/HANDOVER.md`) →
-Entwicklungsloop (`/tdd`, `code-reviewer`) → PR & Required CI Checks →
-Staging-Deploy → Verifikation → Prod.
+**Prozess 2 — Development & Deploy (Issue → Prod):**
+```
+/ship-feature → Branch → /tdd → PR → CI-Gate →
+gh pr merge (dev) ← Agent autonom
+  → Staging-Deploy (automatisch)
+  → /verify-staging via Hermes
+dev→main PR → STOP (Mensch entscheidet)
+  → Prod-Deploy (manuell)
+```
+
+| Schritt | Wer | Warum |
+|---|---|---|
+| Merge in `dev` | Agent | Staging ist wegwerfbar, kein Nutzerzustand |
+| Merge in `main` | Mensch | Prod hat Keycloak-Realm, laufende Deployments |
+| Spec freigeben | Mensch | Agent rät keine Architektur ohne Bestätigung |
+| Issue erstellen | Agent (nach Freigabe) | Audit-Trail, Startpunkt für /ship-feature |
 
 ## Wenn etwas an diesem Setup schon wieder veraltet ist
 
