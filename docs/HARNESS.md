@@ -31,6 +31,56 @@ was jemand tun sollte.
 
 ---
 
+---
+
+## 0. Prozess 1 — Issue Creation: vom Wunsch zur Spezifikation
+
+Bevor ein Feature die Kette in System 5 betritt, braucht es eine
+Spezifikation, die ein Mensch freigegeben hat. Dieser Prozess ist
+vollständig in `/issue-creation` (`deployment/.claude/skills/
+issue-creation/SKILL.md`) abgebildet.
+
+### Die Kette
+
+```
+1. MENSCH    Anforderung rein
+2. AGENT     Klarifizieren — liest HANDOVER.md + claude_docs/ aller
+                             betroffenen Repos, stellt gezielte Rückfragen
+3. MENSCH    Antworten
+4. AGENT     Brainstorming (/brainstorming) — Cross-Repo-Graphify +
+                             OpenAPI-Contract, Optionen mit Trade-offs
+             ── MENSCH wählt Option ──
+5. AGENT     Specs: /design-spec → Design Spec (was + warum)
+                    /implementation-spec → Impl Spec (wie, null Platzhalter)
+6. MENSCH    Freigabe (explizite Bestätigung, nicht implizit)
+             ── danach: gh issue create ──
+```
+
+Zwei HITL-Stopps (Klarifizierung, Freigabe), kein "Agent rät Architektur"
+ohne explizite Bestätigung. Die Spec landet als GitHub-Issue-Body und
+ist der Startpunkt für `/ship-feature #<issue-number>`.
+
+### Ablageorte der Skills
+
+| Skill | Datei | Kern-Referenz |
+|---|---|---|
+| `/issue-creation` | `deployment/.claude/skills/issue-creation/SKILL.md` | Org-spezifisch |
+| `/brainstorming` | `deployment/.claude/skills/brainstorming/SKILL.md` | [Superpowers upstream](https://github.com/obra/superpowers/blob/main/skills/brainstorming/SKILL.md) + Org-Ergänzungen |
+| `/design-spec` | `deployment/.claude/skills/design-spec/SKILL.md` | Org-spezifisch (OpenAPI-first, Sechs-Repo) |
+| `/implementation-spec` | `deployment/.claude/skills/implementation-spec/SKILL.md` | [Superpowers writing-plans](https://github.com/obra/superpowers/blob/main/skills/writing-plans/SKILL.md) Prinzip + Org-Ergänzungen |
+
+### Warum hier und nicht in `.github/.claude/skills/`
+
+`/issue-creation` braucht Zugriff auf Org-weite HANDOVER.md-Dateien,
+den Cross-Repo-Graphify-Graphen (`.github/graphify-out/`) und die
+`gh`-CLI gegen alle sechs Repos. Das sind Abhängigkeiten, die im
+`deployment`-Repo bündelbar sind — im zentralen `.github`-Repo liegen
+Skills, die repo-übergreifend für die *Entwicklung* gelten (`/tdd`,
+`/ship-feature`); Prozess-1-Skills sind dichter am Kontext-Layer
+und bleiben im `deployment`-Repo, analog zu den Ops-Skills.
+
+---
+
 ## 1. Wissen — wie der Agent das Projekt versteht
 
 Zwei Werkzeuge, beide repo-lokal, beide committet.
@@ -497,10 +547,14 @@ Update-Rhythmus ist eine Kopie sofort veraltet):
   `podman-mcp`-Bugs in 2.1 gefunden wurden (Quellcode lesen statt aus
   der Fehlermeldung raten) — kein Zufall, sondern der Grund, warum
   dieser Skill hier zitiert wird und nicht nur als gute Idee dasteht.
-- **`brainstorming`** — für Architekturentscheidungen, bevor sie in
-  `claude_docs/decisions/` landen. Noch nicht in einen eigenen Skill
-  eingebunden (kein konkreter Anwendungsfall bisher, anders als TDD und
-  Debugging, die schon real gebraucht wurden).
+- **[`brainstorming`](https://github.com/obra/superpowers/blob/main/skills/brainstorming/SKILL.md)**
+  — für Architekturentscheidungen, bevor sie in `claude_docs/decisions/`
+  landen. Eingebunden als `deployment/.claude/skills/brainstorming/SKILL.md`:
+  verlinkt auf den Superpowers-Upstream für das Kern-Prinzip (Spike /
+  Bounded / Architectural, Hard-Gate-Regel), ergänzt um
+  Org-spezifisches (Cross-Repo-Analyse via Graphify + OpenAPI, Pfad-
+  Klassifikation für die Sechs-Repo-Struktur, Output-Format für
+  `/issue-creation` Step 4).
 
 Nicht übernommen: alles, was auf einen Einzel-Repo-Kontext ausgelegt
 ist und unsere Sechs-Repo-Struktur ignoriert (z. B. Skills, die von
@@ -522,10 +576,14 @@ vorhanden.
 - **Universelle Entwicklungs-Skills (`.github/.claude/skills/`):**
   `/tdd` und `/ship-feature` gelten repo-übergreifend und liegen im
   zentralen `.github`-Repo.
+- **Issue-Creation- & Spec-Skills (`deployment/.claude/skills/`):**
+  `/issue-creation`, `/brainstorming`, `/design-spec`,
+  `/implementation-spec` — Prozess 1 komplett im `deployment`-Repo,
+  weil sie Zugriff auf Org-weite Kontextdateien und `gh`-CLI brauchen.
 - **Host- & Deployment-spezifische Ops-Skills (`deployment/.claude/skills/`):**
-  `/deploy-status`, `/diagnose-production`, `/restart-service` und der
-  `appstore-prod-guardrail.py`-Hook steuern direkt die `appstore-prod-01`-VM
-  und Docker Compose und verbleiben deshalb im `deployment`-Repo.
+  `/deploy-status`, `/diagnose-production`, `/restart-service`,
+  `/verify-staging` und der `appstore-prod-guardrail.py`-Hook steuern
+  direkt die `appstore-prod-01`-VM und verbleiben im `deployment`-Repo.
 
 ---
 
@@ -556,8 +614,14 @@ Anforderung spezifiziert
   ├─► Staging-Deploy — AUTOMATISCH                     bereits heute so: deployment/staging.yml
   │     triggert bei push auf main                      läuft bei jedem Merge, kein Zutun nötig
   │
-  ├─► Verifikation auf Staging (System 2)               /diagnose-production gegen Staging,
-  │                                                      nicht nur gegen Prod
+  ├─► Staging-Deploy — AUTOMATISCH                     bereits heute so: deployment/staging.yml
+  │     triggert bei push auf main                      läuft bei jedem Merge, kein Zutun nötig
+  │
+  ├─► Verifikation auf Staging (System 2)               /verify-staging aufrufen:
+  │     └─ Hermes-Handoff via GitHub-Comment            gh pr comment #X "@hermes /verify-staging"
+  │        auf dem gemergten PR — Hermes liest           Hermes antwortet auf Discord mit Container-
+  │        via github-mcp, prüft Container-Health,       Health, Logs, Gesamtstatus.
+  │        postet Ergebnis im Discord-Channel.           Bis github-mcp aktiv: Mensch relayed manuell.
   │
   └─► Prod-Promotion                                   ── MENSCHLICHE FREIGABE, siehe 5.2 ──
         kein automatischer Trigger vorhanden
@@ -691,32 +755,36 @@ gemeinsame Historie mit dem Template.
 
 ---
 
-## Status (Stand 2026-09-18, vollständige Multi-Repo-Harmonisierung)
+## Status (Stand 2026-09-23, Issue-Creation-Loop + Hermes-Handoff)
 
 | System | Status |
 |---|---|
+| 0 · Issue Creation (Prozess 1) | ✅ `/issue-creation` → `/brainstorming` → `/design-spec` → `/implementation-spec` vollständig; alle vier Skills in `deployment/.claude/skills/` |
 | 1 · Wissen | ✅ `claude_docs/` & `HANDOVER.md` in allen 6 Repos + `.github`; OpenAPI 3.1 Single Source of Truth + CI-Export + Frontend-Code-Gen (`npm run openapi:generate`); lokale Graphen + zentraler Cross-Repo-Graph (`cross-repo-graph.json`, `graph.html`) |
-| 2 · Deployment-Ops-Skills | ✅ `podman-mcp` läuft produktiv (2.1); `github-mcp-server`/`python-openstackmcp-server` vollständig konfiguriert; Ops-Skills verbleiben spezifisch im `deployment`-Repo (`/diagnose-production`, `/deploy-status`, `/restart-service`) |
+| 2 · Deployment-Ops-Skills | ✅ `podman-mcp` läuft produktiv (2.1); `github-mcp-server`/`python-openstackmcp-server` vollständig konfiguriert; Ops-Skills + `/verify-staging` im `deployment`-Repo |
 | 3 · Zugriff & Guardrails | ✅ Org-Write-Zugriff, Branch-Protection in allen sechs Repos, Server-Agent-Zugang läuft (Hermes + Discord-Allowlist), PreToolUse-Hook für direkten SSH-Zugriff (`appstore-prod-guardrail.py`) |
-| 4 · Engineering-Loop | ✅ Universeller ECC-`code-reviewer`-Agent und `/tdd`-Skill ins zentrale `.github`-Repo umgezogen (`.github/.claude/`); Superpowers per Referenz eingebunden |
-| 5 · Autonomer Feature-Loop | ✅ Kette vollständig: `/ship-feature` im zentralen `.github`-Repo; verbindet claude_docs/ (1) → TDD + Code-Review (4) → CI-Gate (3.1) → menschliche Freigabepunkte (5.2) |
+| 4 · Engineering-Loop | ✅ Universeller ECC-`code-reviewer`-Agent und `/tdd`-Skill im zentralen `.github`-Repo; Superpowers per Referenz eingebunden (`brainstorming`-Skill jetzt aktiviert) |
+| 5 · Autonomer Feature-Loop | ✅ Kette vollständig: `/ship-feature` + `/verify-staging` (Stufe 8); Hermes-Handoff via GitHub-Comment-Protokoll definiert |
 
 **Was in dieser Runde fertig wurde:**
-1. **Multi-Repo `claude_docs/` & `HANDOVER.md` komplettiert:**
-   Alle Repos (`backend`, `deployment`, `frontend`, `worker`, `self-service-ui`, `moodle_appstore` sowie `.github`) besitzen nun einheitlich ein schlankes `CLAUDE.md` und ein lebendes `claude_docs/HANDOVER.md`.
-2. **OpenAPI-Contract Kette geschlossen:**
-   `backend`: Schema-Validierung und Artefakt-Upload direkt im CI-Workflow (`ci.yml`).
-   `frontend`: `openapi-typescript` integriert und typensicherer Generator `npm run openapi:generate` (`src/types/api.generated.ts`) aufgesetzt.
-3. **Cross-Repo Knowledge Graph (Graphify):**
-   `worker` mit lokalem Graphen (`graphify-out/`) ausgestattet. Alle vier Kern-Graphen zu `.github/graphify-out/cross-repo-graph.json` gemergt und visualisiert (`graph.html`). Automatisierter Merge-Workflow in `.github/.github/workflows/merge-graphs.yml` hinterlegt.
+1. **Prozess 1 (Issue Creation) vollständig gebaut:**
+   Vier neue Skills in `deployment/.claude/skills/`: `/issue-creation` (Orchestrierung),
+   `/brainstorming` (Superpowers-verlinkt + Org-Ergänzungen), `/design-spec` (OpenAPI-first),
+   `/implementation-spec` (Superpowers writing-plans Prinzip, zero placeholders).
+2. **Hermes-Kommunikationsprotokoll definiert:**
+   `/verify-staging` (neuer Skill) schließt Stufe 8 des `/ship-feature`-Loops. Dev-Agent →
+   Hermes via `gh pr comment "@hermes /verify-staging"` auf dem gemergten PR; Hermes liest
+   via github-mcp (sobald aktiviert) und postet auf Discord. Bis github-mcp live ist:
+   dokumentierter manueller Relay-Pfad.
+3. **`/ship-feature` um Stufe 8 erweitert:**
+   Nach Merge ruft `/ship-feature` explizit `/verify-staging` auf statt nur "verify via
+   /diagnose-production wenn gefragt".
 
-**Verbleibend, kein Blocker mehr:**
+**Verbleibend, kein Blocker:**
 
-1. **github-mcp-server / python-openstackmcp-server aktivieren**,
-   sobald ein `GITHUB_TOKEN` (read-only PAT) bzw. eine
-   lese-beschränkte `clouds.yaml` vorliegen.
-2. **`brainstorming`-Skill aus Superpowers einbinden**, sobald ein
-   konkreter Anwendungsfall ansteht.
+1. **github-mcp-server aktivieren** — schaltet den Hermes-Handoff in `/verify-staging`
+   vom manuellen Relay auf vollautomatischen GitHub-Comment-Trigger um.
+2. **python-openstackmcp-server aktivieren** — sobald lese-beschränkte `clouds.yaml` vorliegt.
 
 **Bekannte, nicht behebbare Lücke:** `members_can_delete_repositories`
 / `members_can_change_repo_visibility` lassen sich über die GitHub-API
