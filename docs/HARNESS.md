@@ -26,6 +26,56 @@ System, nicht gegen ein Zielbild.
 
 ---
 
+---
+
+## 0. Prozess 1 — Issue Creation: vom Wunsch zur Spezifikation
+
+Bevor ein Feature die Kette in System 5 betritt, braucht es eine
+Spezifikation, die ein Mensch freigegeben hat. Dieser Prozess ist
+vollständig in `/issue-creation` (`deployment/.claude/skills/
+issue-creation/SKILL.md`) abgebildet.
+
+### Die Kette
+
+```
+1. MENSCH    Anforderung rein
+2. AGENT     Klarifizieren — liest HANDOVER.md + claude_docs/ aller
+                             betroffenen Repos, stellt gezielte Rückfragen
+3. MENSCH    Antworten
+4. AGENT     Brainstorming (/brainstorming) — Cross-Repo-Graphify +
+                             OpenAPI-Contract, Optionen mit Trade-offs
+             ── MENSCH wählt Option ──
+5. AGENT     Specs: /design-spec → Design Spec (was + warum)
+                    /implementation-spec → Impl Spec (wie, null Platzhalter)
+6. MENSCH    Freigabe (explizite Bestätigung, nicht implizit)
+             ── danach: gh issue create ──
+```
+
+Zwei HITL-Stopps (Klarifizierung, Freigabe), kein "Agent rät Architektur"
+ohne explizite Bestätigung. Die Spec landet als GitHub-Issue-Body und
+ist der Startpunkt für `/ship-feature #<issue-number>`.
+
+### Ablageorte der Skills
+
+| Skill | Datei | Kern-Referenz |
+|---|---|---|
+| `/issue-creation` | `deployment/.claude/skills/issue-creation/SKILL.md` | Org-spezifisch |
+| `/brainstorming` | `deployment/.claude/skills/brainstorming/SKILL.md` | [Superpowers upstream](https://github.com/obra/superpowers/blob/main/skills/brainstorming/SKILL.md) + Org-Ergänzungen |
+| `/design-spec` | `deployment/.claude/skills/design-spec/SKILL.md` | Org-spezifisch (OpenAPI-first, Sechs-Repo) |
+| `/implementation-spec` | `deployment/.claude/skills/implementation-spec/SKILL.md` | [Superpowers writing-plans](https://github.com/obra/superpowers/blob/main/skills/writing-plans/SKILL.md) Prinzip + Org-Ergänzungen |
+
+### Warum hier und nicht in `.github/.claude/skills/`
+
+`/issue-creation` braucht Zugriff auf Org-weite HANDOVER.md-Dateien,
+den Cross-Repo-Graphify-Graphen (`.github/graphify-out/`) und die
+`gh`-CLI gegen alle sechs Repos. Das sind Abhängigkeiten, die im
+`deployment`-Repo bündelbar sind — im zentralen `.github`-Repo liegen
+Skills, die repo-übergreifend für die *Entwicklung* gelten (`/tdd`,
+`/ship-feature`); Prozess-1-Skills sind dichter am Kontext-Layer
+und bleiben im `deployment`-Repo, analog zu den Ops-Skills.
+
+---
+
 ## 1. Wissen — wie der Agent das Projekt versteht
 
 ### 1.1 `claude_docs/` — tief geschachtelt, mit lebendem Übergabedokument

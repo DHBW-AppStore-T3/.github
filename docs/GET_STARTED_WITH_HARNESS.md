@@ -267,14 +267,14 @@ in `authorized_keys` hinterlegt, frag im Team um Zugang). Dieser User
 hat passwortlosen Sudo — sei entsprechend vorsichtig, jeder Befehl
 läuft effektiv als root.
 
-**Für einen Agenten gilt das nicht.** Ein Agent (egal ob lokal
-gestartet und per SSH auf die VM zugreifend, oder direkt auf der VM
-laufend) darf **nicht** den `ubuntu`-User verwenden. Solange der in
-`HARNESS.md` beschriebene `claude-agent`-User samt PreToolUse-Hooks
-noch nicht existiert, gilt: keine schreibenden Aktionen eines Agenten
-gegen `appstore-prod-01`, nur Lesen (Logs, Health, `docker ps`) über
-den `ubuntu`-Zugang, alles Schreibende geht über die reguläre
-CI/CD-Pipeline in `deployment/`.
+**Für einen Agenten gilt das nicht.** Der einzige Server-Agent ist
+**Hermes** — er läuft containerisiert auf der VM und kommuniziert über
+Discord (Allowlist: `DISCORD_ALLOWED_USERS`). Ein separater
+`claude-agent`-Host-User wurde bewusst verworfen (siehe `HARNESS.md`
+Abschnitt 3.2). Der Coding-Agent (Claude Code auf deinem Rechner) hat
+keinen direkten SSH-Zugriff auf `appstore-prod-01` — alles Schreibende
+läuft über die CI/CD-Pipeline oder über Hermes nach expliziter
+menschlicher Freigabe.
 
 Falls du selbst noch keinen OpenStack-Zugriff (nicht denselben wie
 SSH-auf-die-VM, sondern für Terraform/die OpenStack-API) eingerichtet
@@ -294,10 +294,12 @@ löschen, nicht reparieren.
 
 ## 10. Deployment-Ops-Skills (im `deployment`-Repo)
 
-Die deploy- und vm-spezifischen Ops-Skills liegen in `deployment/.claude/`:
-- `/diagnose-production`: Feste Diagnosereihenfolge (Health → Logs → Deploys → OpenStack)
-- `/deploy-status`: Status Staging vs. Prod
-- `/restart-service`: Einzige erlaubte Schreibaktion, geschützt durch `deployment/.claude/hooks/appstore-prod-guardrail.py`
+Die deploy- und vm-spezifischen Ops-Skills liegen in `deployment/.claude/skills/`:
+- `/diagnose-production` — Feste Diagnosereihenfolge (Health → Logs → Deploys → OpenStack)
+- `/deploy-status` — Status Staging vs. Prod
+- `/restart-service` — Einzige erlaubte Schreibaktion auf der VM, geschützt durch `appstore-prod-guardrail.py`
+- `/verify-staging` — Nach einem Merge in `dev`: postet `@hermes /verify-staging`
+  als Comment auf den PR; Hermes prüft Container-Health und postet das Ergebnis auf Discord
 
 ## 11. Die 2 Flows im Entwickler-Alltag
 
