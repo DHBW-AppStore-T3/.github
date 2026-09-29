@@ -1,6 +1,17 @@
 .DS_Store
 .idea/
 
+# Secrets & Credentials
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.pfx
+clouds.yaml
+sap_cookies.json
+sap_tokens.json
+
 # Graphify
 graphify-out/cache/
 graphify-out/.graphify_python
