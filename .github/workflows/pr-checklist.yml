@@ -1,0 +1,109 @@
+name: PR Checklist
+
+# QS-Maßnahme "PR-Checkliste" — wiederverwendbarer Check für alle Repos
+# der Organisation. Blockiert den Merge, solange in der PR-Beschreibung
+# noch Checkboxen offen sind. Nicht zutreffende Punkte werden mit "n/a"
+# markiert und trotzdem abgehakt.
+#
+# Die Checklisten-Punkte stehen NICHT hier, sondern im PR-Template des
+# jeweiligen Repos. Der Check vergleicht die PR-Beschreibung mit dem
+# Template vom Base-Commit; jedes Repo pflegt also seine eigene Liste.
+#
+# Aufruf aus einem Repo (.github/workflows/pr-checklist.yml):
+#
+#   on:
+#     pull_request:
+#       types: [opened, edited, reopened, synchronize, ready_for_review]
+#       branches: [main, dev]
+#   permissions:
+#     contents: read
+#   jobs:
+#     checklist:
+#       name: PR Checklist
+#       uses: DHBW-AppStore-T3/.github/.github/workflows/pr-checklist.yml@main
+#
+# Blockiert erst, wenn "PR Checklist / Checkliste" in der Branch-Protection
+# von `main` und `dev` als Required Status Check eingetragen ist.
+on:
+  workflow_call:
+    inputs:
+      template-path:
+        description: Pfad zum PR-Template. Leer = automatisch suchen.
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  checklist:
+    name: Checkliste
+    runs-on: ubuntu-latest
+    concurrency:
+      group: pr-checklist-${{ github.repository }}-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+
+    steps:
+      - name: Require pull_request event
+        if: github.event_name != 'pull_request'
+        run: |
+          echo "::error::Der Checklisten-Check braucht ein pull_request-Event (war: ${{ github.event_name }})."
+          exit 1
+
+      # Template vom Base-Commit, nicht aus dem PR — sonst könnte ein PR
+      # die Checkliste kürzen und sich damit selbst durchwinken.
+      - name: Checkout PR template (base)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          sparse-checkout: |
+            /.github/
+            /[Pp][Uu][Ll][Ll]_[Rr][Ee][Qq][Uu][Ee][Ss][Tt]_[Tt][Ee][Mm][Pp][Ll][Aa][Tt][Ee].md
+            /docs/[Pp][Uu][Ll][Ll]_[Rr][Ee][Qq][Uu][Ee][Ss][Tt]_[Tt][Ee][Mm][Pp][Ll][Aa][Tt][Ee].md
+          sparse-checkout-cone-mode: false
+
+      - name: Check checklist in PR description
+        env:
+          # Über env statt direkter ${{ }}-Interpolation im Skript, damit
+          # der PR-Text nicht als Shell-Code ausgeführt werden kann.
+          PR_BODY: ${{ github.event.pull_request.body }}
+          TEMPLATE_PATH: ${{ inputs.template-path }}
+        run: |
+          # Gleiche Suchorte wie GitHub: .github/, Repo-Root, docs/.
+          template="$TEMPLATE_PATH"
+          if [ -z "$template" ]; then
+            for dir in .github . docs; do
+              template=$(find "$dir" -maxdepth 1 -type f -iname 'pull_request_template.md' 2>/dev/null | head -n1)
+              [ -n "$template" ] && break
+            done
+          fi
+          if [ -z "$template" ] || [ ! -f "$template" ]; then
+            echo "::error title=PR-Template fehlt::Kein pull_request_template.md im Base-Branch gefunden."
+            exit 1
+          fi
+          echo "Template: $template"
+
+          # HTML-Kommentare und Code-Blöcke ignorieren (Beispiele im Template).
+          strip() { tr -d '\r' | perl -0pe 's/<!--.*?-->//gs; s/^```.*?^```//gms'; }
+
+          body=$(printf '%s' "$PR_BODY" | strip)
+          tmpl=$(strip < "$template")
+
+          expected=$(printf '%s\n' "$tmpl" | grep -cE '^\s*[-*+] \[[ xX]\] ' || true)
+          checked=$(printf '%s\n' "$body"  | grep -cE '^\s*[-*+] \[[xX]\] '  || true)
+          open=$(printf '%s\n' "$body"     | grep -E  '^\s*[-*+] \[ \] '     || true)
+
+          echo "Checkliste: ${checked} abgehakt, Template erwartet ${expected}."
+
+          if [ -n "$open" ]; then
+            echo "::error title=PR-Checkliste unvollständig::Offene Punkte in der PR-Beschreibung. Abhaken oder mit 'n/a' markieren und abhaken."
+            printf '%s\n' "$open"
+            exit 1
+          fi
+
+          if [ "$checked" -lt "$expected" ]; then
+            echo "::error title=PR-Checkliste fehlt::Nur ${checked} von ${expected} Checklisten-Punkten in der PR-Beschreibung. Checkliste aus ${template} vollständig übernehmen."
+            exit 1
+          fi
+
+          echo "✅ Checkliste vollständig."
