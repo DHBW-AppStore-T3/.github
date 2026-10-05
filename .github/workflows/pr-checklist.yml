@@ -7,7 +7,7 @@ name: PR Checklist
 #
 # Die Checklisten-Punkte stehen NICHT hier, sondern im PR-Template des
 # jeweiligen Repos. Der Check vergleicht die PR-Beschreibung mit dem
-# Template vom Base-Commit; jedes Repo pflegt also seine eigene Liste.
+# Template des PR-Stands; jedes Repo pflegt also seine eigene Liste.
 #
 # Aufruf aus einem Repo (.github/workflows/pr-checklist.yml):
 #
@@ -50,12 +50,14 @@ jobs:
           echo "::error::Der Checklisten-Check braucht ein pull_request-Event (war: ${{ github.event_name }})."
           exit 1
 
-      # Template vom Base-Commit, nicht aus dem PR — sonst könnte ein PR
-      # die Checkliste kürzen und sich damit selbst durchwinken.
-      - name: Checkout PR template (base)
+      # Template aus dem PR-Stand (Merge-Commit), damit ein PR, der das
+      # Template selbst ändert, gegen die neue Fassung geprüft wird. Wer die
+      # Checkliste im Template kürzt, tut das sichtbar im Diff, den die
+      # reviewende Person freigibt; Kürzen nur in der Beschreibung fängt
+      # der Abgleich unten ab.
+      - name: Checkout PR template
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
           sparse-checkout: |
             /.github/
             /[Pp][Uu][Ll][Ll]_[Rr][Ee][Qq][Uu][Ee][Ss][Tt]_[Tt][Ee][Mm][Pp][Ll][Aa][Tt][Ee].md
@@ -78,7 +80,7 @@ jobs:
             done
           fi
           if [ -z "$template" ] || [ ! -f "$template" ]; then
-            echo "::error title=PR-Template fehlt::Kein pull_request_template.md im Base-Branch gefunden."
+            echo "::error title=PR-Template fehlt::Kein pull_request_template.md im Repo gefunden."
             exit 1
           fi
           echo "Template: $template"
