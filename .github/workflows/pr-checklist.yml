@@ -9,6 +9,21 @@ name: PR Checklist
 # jeweiligen Repos. Der Check vergleicht die PR-Beschreibung mit dem
 # Template des PR-Stands; jedes Repo pflegt also seine eigene Liste.
 #
+# Zwei Arten von PRs:
+# - Änderungs-PRs (Feature-Branch → dev, Hotfix → main): Standard-Template
+#   (.github/pull_request_template.md).
+# - Release-PRs (dev oder promote/* → main): Release-Template
+#   .github/pull_request_template/release.md, falls vorhanden. Anlegen mit
+#     gh pr create --base main --head dev --body-file .github/pull_request_template/release.md
+#   oder im Browser über .../compare/main...dev?expand=1&template=release.md
+# Damit nicht die (längere) Änderungs-Checkliste einen Release-PR besteht,
+# muss die Überschrift der Checkliste aus dem Template in der Beschreibung
+# stehen ("## Checkliste" bzw. "## Release-Checkliste").
+#
+# Dependabot-PRs werden übersprungen: Dependabot legt PRs über die API an,
+# ohne Template. Ein übersprungener Job zählt als bestandener Required
+# Check; das Review auf `main` bleibt Pflicht.
+#
 # Aufruf aus einem Repo (.github/workflows/pr-checklist.yml):
 #
 #   on:
@@ -28,7 +43,7 @@ on:
   workflow_call:
     inputs:
       template-path:
-        description: Pfad zum PR-Template. Leer = automatisch suchen.
+        description: Pfad zum Standard-PR-Template. Leer = automatisch suchen.
         type: string
         default: ""
 
@@ -38,6 +53,9 @@ permissions:
 jobs:
   checklist:
     name: Checkliste
+    # Nach dem PR-Autor, nicht nach github.actor: Bearbeitet ein Mensch die
+    # Beschreibung eines Dependabot-PRs, bleibt der Check übersprungen.
+    if: github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ubuntu-latest
     concurrency:
       group: pr-checklist-${{ github.repository }}-${{ github.event.pull_request.number }}
@@ -70,9 +88,30 @@ jobs:
           # der PR-Text nicht als Shell-Code ausgeführt werden kann.
           PR_BODY: ${{ github.event.pull_request.body }}
           TEMPLATE_PATH: ${{ inputs.template-path }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          REPO: ${{ github.repository }}
+          SERVER_URL: ${{ github.server_url }}
         run: |
+          # Release-PR: dev oder promote/* aus diesem Repo nach main.
+          release=false
+          if [ "$BASE_REF" = main ] && [ "$HEAD_REPO" = "$REPO" ]; then
+            case "$HEAD_REF" in dev|promote/*) release=true ;; esac
+          fi
+
+          template=""
+          if [ "$release" = true ]; then
+            template=$(find .github -maxdepth 2 -type f -ipath '.github/pull_request_template/release.md' 2>/dev/null | head -n1)
+            if [ -z "$template" ]; then
+              echo "::warning title=Kein Release-Template::Release-PR, aber kein .github/pull_request_template/release.md gefunden. Prüfe gegen das Standard-Template."
+            fi
+          fi
+
           # Gleiche Suchorte wie GitHub: .github/, Repo-Root, docs/.
-          template="$TEMPLATE_PATH"
+          if [ -z "$template" ]; then
+            template="$TEMPLATE_PATH"
+          fi
           if [ -z "$template" ]; then
             for dir in .github . docs; do
               template=$(find "$dir" -maxdepth 1 -type f -iname 'pull_request_template.md' 2>/dev/null | head -n1)
@@ -83,13 +122,23 @@ jobs:
             echo "::error title=PR-Template fehlt::Kein pull_request_template.md im Repo gefunden."
             exit 1
           fi
-          echo "Template: $template"
+          echo "Template: $template (Release-PR: $release)"
 
           # HTML-Kommentare und Code-Blöcke ignorieren (Beispiele im Template).
           strip() { tr -d '\r' | perl -0pe 's/<!--.*?-->//gs; s/^```.*?^```//gms'; }
 
           body=$(printf '%s' "$PR_BODY" | strip)
           tmpl=$(strip < "$template")
+
+          # Überschrift, unter der die Checkliste im Template steht.
+          heading=$(printf '%s\n' "$tmpl" | awk '/^## /{h=$0} /^[[:space:]]*[-*+] \[[ xX]\] /{print h; exit}' | sed 's/[[:space:]]*$//')
+          if [ -n "$heading" ] && ! printf '%s\n' "$body" | sed 's/[[:space:]]*$//' | grep -qxF -- "$heading"; then
+            echo "::error title=Falsche Checkliste::Die Überschrift \"${heading}\" aus ${template} fehlt in der PR-Beschreibung. Checkliste aus ${template} übernehmen."
+            if [ "$release" = true ]; then
+              echo "Release-PR: Beschreibung aus ${template} übernehmen, z. B. über ${SERVER_URL}/${REPO}/compare/main...${HEAD_REF}?expand=1&template=release.md"
+            fi
+            exit 1
+          fi
 
           expected=$(printf '%s\n' "$tmpl" | grep -cE '^\s*[-*+] \[[ xX]\] ' || true)
           checked=$(printf '%s\n' "$body"  | grep -cE '^\s*[-*+] \[[xX]\] '  || true)

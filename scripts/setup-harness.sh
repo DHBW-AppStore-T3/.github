@@ -4,7 +4,7 @@
 # ==============================================================================
 # Installiert die offiziellen Open-Source-Plugins (Superpowers & ECC) und verlinkt
 # die projektspezifischen AppStore-Flows (/user-story, /harness-workflow).
-# GitHub Best Practices (SECURITY.md, PULL_REQUEST_TEMPLATE,
+# GitHub Best Practices (SECURITY.md, pull_request_template,
 # dependabot.yml) sind im .github-Repo committet und gelten automatisch.
 # ==============================================================================
 

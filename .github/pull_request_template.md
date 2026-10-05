@@ -17,6 +17,9 @@ Org-weite Standard-Checkliste. Sie gilt für dieses Repo und für jedes Repo
 ohne eigenes .github/pull_request_template.md. frontend, backend, worker und
 deployment haben eigene, spezialisierte Checklisten.
 
+Release-PRs (`dev` oder `promote/*` → `main`) verwenden stattdessen
+`.github/pull_request_template/release.md`.
+
 Jeder Punkt wird abgehakt, bevor der PR gemergt werden kann. Der CI-Check
 "PR Checklist" blockiert den Merge, solange hier noch ein offenes "- [ ]" steht.
 
