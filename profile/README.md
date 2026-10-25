@@ -1,7 +1,7 @@
-# OpenStack AppStore (Studienprojekt)
+# AppStore (Studienprojekt)
 
-Wir entwickeln im Rahmen unseres Studiums einen **AppStore für Lehr- und Übungsumgebungen auf OpenStack**.  
-Ziel ist es, dass **Dozierende ohne tiefes Cloud-/OpenStack-Wissen** Anwendungen und komplette Übungsumgebungen bereitstellen können – schnell, wiederholbar und mit klaren Ressourcengrenzen.
+Wir entwickeln im Rahmen unseres Studiums einen **AppStore für Lehr- und Übungsumgebungen**, dessen Apps als Pods in einem Kubernetes-Cluster laufen.  
+Ziel ist es, dass **Dozierende ohne tiefes Cloud-Wissen** Anwendungen und komplette Übungsumgebungen bereitstellen können – schnell, wiederholbar und mit klaren Ressourcengrenzen.
 
 ## Worum geht’s?
 Viele Lehrveranstaltungen brauchen heute IT-Umgebungen, die für Studierende zuverlässig verfügbar sind – z. B.:
