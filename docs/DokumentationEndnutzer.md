@@ -70,9 +70,9 @@ Der Einstieg in die Plattform erfolgt über den regulären Login. Sie können si
   <figcaption style="font-size: 0.9em; color: #555;">Keycloak Login</figcaption>
 </figure>
 
-Nach erfolgreichem Login landen Sie direkt auf dem **Dashboard**. Hier erhalten Sie einen schnellen Überblick über:
-* Ihre zugewiesenen Deployments
-* Die verfügbaren Apps im Store
+Nach erfolgreichem Login landen Sie direkt auf dem **Dashboard**. Hier sehen Sie auf einen Blick drei anklickbare Kennzahl-Kacheln:
+* **Deployments** — Anzahl der Deployments, in denen Sie Mitglied sind. Klicken Sie die Kachel an, um direkt zur Deployment-Übersicht zu gelangen.
+* **Apps** — Anzahl der verfügbaren Apps im Store. Klicken Sie die Kachel an, um den App-Katalog zu öffnen.
 
 <figure style="margin-bottom: 30px;">
   <img src="img/Dashboard_mit_Credentials.png" alt="Dashboard" width="80%">
@@ -87,7 +87,6 @@ Klicken Sie oben rechts auf Ihr **Nutzer-Icon**, öffnet sich ein kleines Menü.
 
 In der Profilansicht sehen Sie alle relevanten Account-Daten auf einen Blick:
 * Vorname, Nachname und E-Mail-Adresse
-* Ihren zugewiesenen Kurs
 * Ihre Rolle (Student)
 * Registrierungsdatum sowie System-IDs (Benutzer-ID und Keycloak-ID)
 
@@ -100,7 +99,7 @@ In der Profilansicht sehen Sie alle relevanten Account-Daten auf einen Blick:
 
 ### Apps einsehen
 
-Über den Menüpunkt **Apps** in der linken Seitenleiste gelangen Sie zur App-Übersicht. Als Student können Sie alle öffentlichen Apps im Store einsehen. Das Anlegen neuer Apps ist Lehrkräften und Admins vorbehalten.
+Über den Menüpunkt **Apps** in der linken Seitenleiste gelangen Sie zur App-Übersicht. Als Student können Sie alle öffentlichen Apps im Store einsehen. Das Anlegen neuer Apps ist Dozenten und Admins vorbehalten.
 
 Wenn Sie in der App-Übersicht auf eine der angezeigten Kacheln klicken, öffnet sich die Detailseite der jeweiligen App.
 
@@ -119,18 +118,31 @@ Als Student haben Sie keine Berechtigung, selbst ein Deployment zu starten. Der 
 
 ### Deployments und Zugangsdaten einsehen
 
-**Wichtig:** Als Student können Sie *keine* eigenen Deployments starten oder konfigurieren. Diese Aufgabe übernehmen Lehrkräfte oder Admins für Sie.
+**Wichtig:** Als Student können Sie *keine* eigenen Deployments starten oder konfigurieren. Diese Aufgabe übernehmen Dozenten oder Admins für Sie.
 
 Über den Menüpunkt **Deployments** in der linken Seitenleiste sehen Sie alle Deployments, denen Sie (bzw. Ihr Team) zugewiesen wurden.
 
-* **Übersicht:** Liste der aktiven Deployments inklusive Status (z. B. „Erfolgreich").
+* **Übersicht:** Liste der aktiven Deployments inklusive Status-Badge (siehe unten).
 * **Details:** Klicken Sie auf ein Deployment, um allgemeine Informationen zur genutzten App, dem Besitzer und der Team-Zuteilung zu sehen.
 * **Zugangsdaten einsehen:** In der Sektion „Teams & Mitglieder" finden Sie neben Ihrem Namen Ihre persönlichen Zugangsdaten für diese App. Das Passwort ist zunächst verborgen und lässt sich über das Augen-Symbol sichtbar machen. Über kleine Symbole können Sie die Daten in die Zwischenablage kopieren.
 * **Zugang erneut senden:** Über diesen Button können Sie sich die Zugangsdaten erneut per E-Mail zuschicken lassen.
 
 > **Hinweis:** Aus Sicherheitsgründen können Sie in der Team-Liste nur Ihre eigenen Zugangsdaten einsehen, nicht die der anderen Teammitglieder.
 
-Wenn ein Deployment noch läuft (Status „Ausstehend" oder „Läuft"), sehen Sie den aktuellen Status automatisch ohne Neuladen.
+#### Bedeutung der Status-Badges
+
+| Status | Bedeutung |
+| :--- | :--- |
+| **Ausstehend** | Das Deployment wurde gestartet und wird gerade vorbereitet. |
+| **läuft** | Das Deployment ist aktiv und alle Dienste sind gestartet. |
+| **erfolgreich** | Das Deployment wurde erfolgreich abgeschlossen (bei einmaligen Aufgaben). |
+| **fehlgeschlagen** | Ein Fehler ist aufgetreten. Wenden Sie sich an Ihren Dozenten oder Administrator. |
+| **pausiert** | Das Deployment wurde angehalten. Daten bleiben erhalten. |
+| **wird pausiert / wird fortgesetzt** | Ein Übergangs-Status — kurz warten. |
+| **abgebrochen** | Das Deployment wurde vom Besitzer abgebrochen. |
+| **wird zerstört / zerstört** | Das Deployment wird oder wurde vollständig entfernt. |
+
+Wenn ein Deployment noch läuft (Status „Ausstehend" oder „läuft"), sehen Sie den aktuellen Status automatisch ohne Neuladen.
 
 <figure style="margin-bottom: 30px;">
   <img src="img/Deployment_Student_1.png" alt="Deployment Details Übersicht" width="80%">
@@ -175,10 +187,10 @@ Der Einstieg in die Plattform erfolgt über den regulären Login. Sie können si
   <figcaption style="font-size: 0.9em; color: #555;">Keycloak Login</figcaption>
 </figure>
 
-Nach erfolgreichem Login landen Sie direkt auf dem **Dashboard**. Hier erhalten Sie einen schnellen Überblick über:
-* Ihre Deployments
-* Die verfügbaren Apps im Store
-* Ihre Kurse
+Nach erfolgreichem Login landen Sie direkt auf dem **Dashboard**. Hier sehen Sie auf einen Blick drei anklickbare Kennzahl-Kacheln:
+* **Deployments** — Anzahl Ihrer Deployments. Klicken Sie die Kachel an, um direkt zur Deployment-Übersicht zu gelangen.
+* **Apps** — Anzahl der verfügbaren Apps im Store. Klicken Sie die Kachel an, um den App-Katalog zu öffnen.
+* **Kurse** — Anzahl Ihrer Kurse. Klicken Sie die Kachel an, um zur Kursübersicht zu gelangen.
 
 <figure style="margin-bottom: 30px;">
   <img src="img/Lehrender_Dashboard.png" alt="Dashboard" width="80%">
@@ -280,28 +292,32 @@ Wenn Sie die App selbst hinzugefügt haben, stehen Ihnen zusätzlich **Bearbeite
 
 > **Hinweis:** Um ein Deployment zu erstellen, muss im Vorfeld bereits eine App angelegt und mindestens eine Version freigegeben worden sein.
 
-1. Klicken Sie in der Deployment-Übersicht oben rechts auf **+ Neues Deployment**.
+**So starten Sie den Wizard:**
 
-<figure style="margin-bottom: 30px;">
-  <img src="img/Deployment_erstellen.png" alt="Deployment erstellen" width="80%">
-  <figcaption style="font-size: 0.9em; color: #555;">Deployment erstellen</figcaption>
-</figure>
-
-2. Wählen Sie eine App aus, indem Sie auf **Details & Deployment** klicken. Auf der App-Detailseite wählen Sie rechts die gewünschte Version und klicken auf **Jetzt Deployen**.
+Navigieren Sie über den Menüpunkt **Apps** zur App-Übersicht. Klicken Sie bei der gewünschten App auf **Details & Deployment**. Auf der App-Detailseite wählen Sie rechts die gewünschte Version aus und klicken auf **Jetzt Deployen** — damit öffnet sich der Deployment-Wizard.
 
 <figure style="margin-bottom: 30px;">
   <img src="img/App_Auswahl.png" alt="App auswählen" width="80%">
-  <figcaption style="font-size: 0.9em; color: #555;">Deploymentprozess: App auswählen</figcaption>
+  <figcaption style="font-size: 0.9em; color: #555;">Deploymentprozess: App auswählen und Deployment starten</figcaption>
 </figure>
 
-3. **Schritt Konfiguration:** Vergeben Sie einen Namen für das Deployment. Fügen Sie dann einen kompletten Kurs oder einzelne Studenten hinzu. Klicken Sie auf **Weiter**.
+Alternativ können Sie in der Deployment-Übersicht oben rechts auf **+ Neues Deployment** klicken und werden dann direkt zur App-Auswahl weitergeleitet.
+
+<figure style="margin-bottom: 30px;">
+  <img src="img/Deployment_erstellen.png" alt="Deployment erstellen" width="80%">
+  <figcaption style="font-size: 0.9em; color: #555;">Deployment erstellen über die Deployment-Übersicht</figcaption>
+</figure>
+
+**Der Wizard führt Sie durch vier Schritte:**
+
+1. **Schritt Konfiguration:** Vergeben Sie einen Namen für das Deployment. Fügen Sie dann einen kompletten Kurs oder einzelne Studenten hinzu. Klicken Sie auf **Weiter**.
 
 <figure style="margin-bottom: 30px;">
   <img src="img/Studenten_Auswählen.png" alt="Studenten auswählen" width="80%">
   <figcaption style="font-size: 0.9em; color: #555;">Studenten auswählen: Kurse oder Studenten hinzufügen</figcaption>
 </figure>
 
-4. **Schritt Verteilung:** Bilden Sie die Teams. Es gibt drei Möglichkeiten:
+2. **Schritt Verteilung:** Bilden Sie die Teams. Es gibt drei Möglichkeiten:
    * **Eine Gruppe:** Alle ausgewählten Studenten in einem einzigen Team.
    * **Jeder Nutzer einzeln:** Jeder Student bildet ein eigenes Team.
    * **Individuell:** Legen Sie über die Plus- und Minus-Buttons eine beliebige Anzahl an Teams fest.
@@ -313,7 +329,7 @@ Wenn Sie die App selbst hinzugefügt haben, stehen Ihnen zusätzlich **Bearbeite
   <figcaption style="font-size: 0.9em; color: #555;">Studenten verteilen: Gruppen und Zuteilung auswählen</figcaption>
 </figure>
 
-5. **Schritt Variablen:** Konfigurieren Sie die App-spezifischen Einstellungen (abhängig von der jeweiligen App).
+3. **Schritt Variablen:** Konfigurieren Sie die App-spezifischen Einstellungen (abhängig von der jeweiligen App).
    * **Ressourcen (CPU & RAM):** Falls die App eine Ressourcenauswahl erlaubt, erscheint ein Schieberegler-Bereich. Bei **Container-Apps** wird in halben vCPUs und MiB skaliert; bei **VM-Apps (KubeVirt)** in ganzen vCPUs und GiB.
    * **Netzwerkeinstellungen:** Falls die App Netzwerkoptionen freigibt (Internetzugang oder Pod-Netzwerk), erscheint ein ausklappbarer Bereich „Netzwerkeinstellungen". Aktivieren Sie die gewünschten Optionen.
    * **Standardwerte:** Die App-Variablen sind bereits vorausgefüllt.
@@ -326,7 +342,7 @@ Wenn Sie die App selbst hinzugefügt haben, stehen Ihnen zusätzlich **Bearbeite
   <figcaption style="font-size: 0.9em; color: #555;">Variablen konfigurieren: Einstellungen und Datei-Uploads</figcaption>
 </figure>
 
-6. **Schritt Übersicht:** Prüfen Sie die Zusammenfassung. Über **Zurück** können Sie jederzeit einen Schritt zurückgehen. Klicken Sie auf **Deployen**, um den Vorgang abzuschließen.
+4. **Schritt Übersicht:** Prüfen Sie die Zusammenfassung. Über **Zurück** können Sie jederzeit einen Schritt zurückgehen. Klicken Sie auf **Deployen**, um den Vorgang abzuschließen.
 
 <figure style="margin-bottom: 30px;">
   <img src="img/Summary.png" alt="Zusammenfassung" width="80%">
@@ -372,7 +388,7 @@ In diesem Bereich sehen Sie alle laufenden Pods des Deployments:
 * **Task-Übersicht:** Alle ausgeführten Tasks mit Status sowie Start- und Endzeitstempel.
 * **Logs:** Zeitgestempelte Konsolenausgaben des Deployments. Über das Kopieren-Symbol können Sie den gesamten Log in die Zwischenablage übernehmen.
 
-> **Hinweis:** Tasks und Logs sind nur für den Besitzer des Deployments und für Lehrkräfte sichtbar.
+> **Hinweis:** Tasks und Logs sind nur für den Besitzer des Deployments und für Dozenten sichtbar.
 
 <figure style="margin-bottom: 30px;">
   <img src="img/Depl_logs.png" alt="Tasks und Logs" width="80%">
@@ -420,7 +436,7 @@ Der Einstieg in die Plattform erfolgt über den regulären Login. Sie können si
   <figcaption style="font-size: 0.9em; color: #555;">Keycloak Login</figcaption>
 </figure>
 
-Nach erfolgreichem Login landen Sie direkt auf dem **Dashboard**. Hier erhalten Sie einen schnellen Überblick über Ihre Deployments, die verfügbaren Apps und Ihre Kurse.
+Nach erfolgreichem Login landen Sie direkt auf dem **Dashboard**. Hier sehen Sie auf einen Blick drei anklickbare Kennzahl-Kacheln — Deployments, Apps und Kurse — jeweils mit der aktuellen Anzahl und einem Pfeil-Link zur jeweiligen Übersicht.
 
 <figure style="margin-bottom: 30px;">
   <img src="img/Dashboard_admin.png" alt="Dashboard Admin" width="80%">
@@ -516,7 +532,9 @@ In der Kursverwaltung sehen Sie als Admin alle auf der Plattform angelegten Kurs
 
 ### Deployments
 
-Über den Menüpunkt **Deployments** sehen Sie als Admin die Deployments **aller Nutzer**. Der Deployment-Prozess und die Detailansicht sind identisch mit der Dozenten-Rolle (siehe Abschnitt 2).
+Über den Menüpunkt **Deployments** sehen Sie als Admin die Deployments **aller Nutzer**. Der Deployment-Prozess und die Detailansicht sind identisch mit der Dozenten-Rolle (siehe Abschnitt 2), inklusive der Status-Badge-Tabelle.
+
+> **Hinweis für Admins mit aktiver Admin-Ansicht:** Beim Deployment-Wizard wird Ihnen auf der App-Detailseite zusätzlich der Button **Version festlegen** angezeigt. Darüber können Sie vor dem Deployen die vorausgewählte Version für alle Nutzer festlegen.
 
 <figure style="margin-bottom: 30px;">
   <img src="img/Alle_Deployments_admin.png" alt="Alle Deployments Admin" width="80%">
