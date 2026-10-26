@@ -42,9 +42,9 @@ Die folgende Tabelle gibt einen schnellen Überblick über die Berechtigungen de
 | :--- | :---: | :---: | :---: |
 | Login am System (via Keycloak) | ✅ | ✅ | ✅ |
 | Öffentliche Apps einsehen | ✅ | ✅ | ✅ |
-| Private Apps einsehen | ✅ (Nur eigene) | ✅ (Nur eigene) | ✅ (Alle) |
-| Neue Apps hinzufügen (zur Prüfung einreichen) | ✅ | ✅ | ✅ |
-| Sichtbarkeit einer App auf „Privat" stellen | ✅ (Nur eigene) | ✅ (Nur eigene) | ✅ (Alle) |
+| Private Apps einsehen | ❌ | ✅ (Nur eigene) | ✅ (Alle) |
+| Neue Apps hinzufügen (zur Prüfung einreichen) | ❌ | ✅ | ✅ |
+| Sichtbarkeit einer App auf „Privat" stellen | ❌ | ✅ (Nur eigene) | ✅ (Alle) |
 | App-Versionen freigeben, ablehnen oder widerrufen | ❌ | ❌ | ✅ |
 | Neue Deployments konfigurieren und starten | ❌ | ✅ | ✅ |
 | Deployments einsehen | ✅ (Nur als Mitglied) | ✅ (Eigene + Kurs-Studenten) | ✅ (Alle) |
@@ -98,30 +98,9 @@ In der Profilansicht sehen Sie alle relevanten Account-Daten auf einen Blick:
 
 ---
 
-### Apps anlegen und einreichen
+### Apps einsehen
 
-Über den Menüpunkt **Apps** in der linken Seitenleiste gelangen Sie zur App-Übersicht. Als Student haben Sie die Möglichkeit, neue Apps hinzuzufügen und zur Überprüfung vorzuschlagen.
-
-1. Klicken Sie in der App-Übersicht oben rechts auf den Button **+ App hinzufügen**.
-2. Vergeben Sie einen **Namen** und tragen Sie eine **Beschreibung** ein (Markdown wird hierbei unterstützt, eine Live-Vorschau hilft bei der Formatierung).
-3. (Optional) Laden Sie ein App-Logo hoch.
-4. Fügen Sie den **Link zu Ihrem GitHub-Repository** (als HTTPS-Link) ein.
-5. **Sichtbarkeit:** Sie können zwischen **Öffentlich** und **Privat** wählen. „Privat" eignet sich besonders gut, wenn Sie eine App gerade erst entwickeln und sie zunächst nur anlegen möchten.
-
-   > **Hinweis:** Auch wenn Sie eine App auf „Öffentlich" stellen, haben Sie als Student *nicht* die Berechtigung, selbst ein Deployment dafür zu starten. Das übernimmt Ihre Lehrkraft oder ein Admin.
-
-6. Haken Sie die Option **„Alle Versionen einreichen"** an, damit Ihre Git-Tags als Versionen an einen Admin zur Überprüfung gesendet werden.
-7. **GitHub Collaborator (nur bei privaten Repositories):** Wenn Ihr verlinktes GitHub-Repository *privat* ist, müssen Sie zwingend den technischen User als Collaborator zu Ihrem Repository hinzufügen. Welchen GitHub-Account Sie einladen müssen, erfahren Sie von Ihrer Administration. Bei einem öffentlichen Repository können Sie diesen Schritt überspringen.
-8. Klicken Sie abschließend auf **Hinzufügen**.
-
-<figure style="margin-bottom: 30px;">
-  <img src="img/App_hinzufuegen.png" alt="App hinzufügen" width="80%">
-  <figcaption style="font-size: 0.9em; color: #555;">App hinzufügen: Einreichen einer neuen App für den Store</figcaption>
-</figure>
-
----
-
-### App-Details einsehen
+Über den Menüpunkt **Apps** in der linken Seitenleiste gelangen Sie zur App-Übersicht. Als Student können Sie alle öffentlichen Apps im Store einsehen. Das Anlegen neuer Apps ist Lehrkräften und Admins vorbehalten.
 
 Wenn Sie in der App-Übersicht auf eine der angezeigten Kacheln klicken, öffnet sich die Detailseite der jeweiligen App.
 
@@ -134,20 +113,6 @@ Als Student haben Sie keine Berechtigung, selbst ein Deployment zu starten. Der 
 <figure style="margin-bottom: 30px;">
   <img src="img/App_Details_1.png" alt="Detailseite einer App" width="80%">
   <figcaption style="font-size: 0.9em; color: #555;">App-Details: Übersicht und Beschreibung</figcaption>
-</figure>
-
-Wenn Sie die App selbst hinzugefügt haben (Sie also der Besitzer sind), stehen Ihnen zusätzliche Verwaltungsfunktionen zur Verfügung:
-
-* Über **Bearbeiten** oben rechts können Sie den **Namen**, die **Beschreibung** sowie das **Logo** der App nachträglich aktualisieren.
-* Das verknüpfte GitHub-Repository kann nach der initialen Erstellung nicht mehr geändert werden.
-
-Über den Tab **App Store** steuern Sie die Sichtbarkeit und können Versionen zur Freigabe einreichen:
-* **Privat:** Die App ist nur für Sie sichtbar. Versionen können noch nicht eingereicht werden.
-* **Öffentlich:** Sie können einzelne Versionen über **Zur Prüfung einreichen** an die Administratoren senden. Erst nach erfolgreicher Freigabe können andere Nutzer diese App deployen.
-
-<figure style="margin-bottom: 30px;">
-  <img src="img/Student_App_Detail_Besitzer4.png" alt="App Store Sichtbarkeit auf Öffentlich" width="80%">
-  <figcaption style="font-size: 0.9em; color: #555;">Sichtbarkeit Öffentlich: Versionen zur Admin-Prüfung einreichen</figcaption>
 </figure>
 
 ---
