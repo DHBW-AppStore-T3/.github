@@ -25,13 +25,15 @@ jobs:
 
       - name: Download graph.json from active member repos
         run: |
-          mkdir -p /tmp/graphs
           for repo in backend frontend worker deployment; do
             echo "Fetching graph.json for $repo..."
+            # One directory per repository: graphify names each source graph after
+            # its directory (a shared directory gives "repo", "repo-2", ...).
+            mkdir -p "/tmp/graphs/$repo/graphify-out"
             # Try fetching graph.json from main branch via raw content API
             curl -sSf -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
               "https://raw.githubusercontent.com/DHBW-AppStore-T3/$repo/main/graphify-out/graph.json" \
-              -o "/tmp/graphs/${repo}-graph.json" || {
+              -o "/tmp/graphs/$repo/graphify-out/graph.json" || {
                 echo "Warning: Could not fetch graph.json from $repo main, skipping."
               }
           done
@@ -39,15 +41,19 @@ jobs:
       - name: Merge graphs via graphify
         run: |
           # Collect all successfully downloaded graphs
-          GRAPHS=$(ls /tmp/graphs/*-graph.json 2>/dev/null || true)
+          GRAPHS=$(ls /tmp/graphs/*/graphify-out/graph.json 2>/dev/null || true)
           if [ -z "$GRAPHS" ]; then
             echo "No graphs found to merge."
             exit 0
           fi
           echo "Merging graphs: $GRAPHS"
           mkdir -p graphify-out
-          uv tool run graphifyy merge-graphs $GRAPHS --out graphify-out/cross-repo-graph.json
-          uv tool run graphifyy export html --graph graphify-out/cross-repo-graph.json
+          # The package graphifyy provides the command graphify; `uv tool run graphifyy`
+          # stopped working when the package renamed its command (this job failed every
+          # week from 2026-10-11). Pinned, so an upgrade cannot break it unnoticed again.
+          GRAPHIFY="uv tool run --from graphifyy==0.9.95 graphify"
+          $GRAPHIFY merge-graphs $GRAPHS --out graphify-out/cross-repo-graph.json
+          $GRAPHIFY export html --graph graphify-out/cross-repo-graph.json
 
       - name: Commit and push if changed
         run: |
