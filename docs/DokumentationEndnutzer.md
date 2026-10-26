@@ -2,7 +2,7 @@
 
 ### Autoren
 1. **Tom Weber** *(Dokumentationsteil: Allgemein, Student)*
-2. **Paulina Clauss** *(Dokumentationsteil: Lehrender)*
+2. **Paulina Clauss** *(Dokumentationsteil: Dozent)*
 3. **Monika Pjano** *(Dokumentationsteil: Admin)*
 
 ### Reviewer (Prüfer)
@@ -28,7 +28,7 @@ Damit der Login erfolgreich durchgeführt werden kann, müssen in Keycloak folge
 Fehlt eine dieser Informationen, gibt es einen Fehler.
 
 **Hinweis zur Struktur dieser Dokumentation**
-Die nun folgende Endnutzer-Dokumentation ist strikt nach Rollen getrennt aufgebaut. Jede Sektion (Student, Lehrender, Admin) ist als eigenständige und vollumfängliche Anleitung konzipiert.
+Die nun folgende Endnutzer-Dokumentation ist strikt nach Rollen getrennt aufgebaut. Jede Sektion (Student, Dozent, Admin) ist als eigenständige und vollumfängliche Anleitung konzipiert.
 
 Aufgrund dieses Aufbaus kann es zu inhaltlichen Dopplungen zwischen den einzelnen Kapiteln kommen. Dies ist bewusst so gewählt: Jede Nutzergruppe erhält genau die Informationen, die für sie relevant sind, ohne bei funktionsübergreifenden Themen zwischen verschiedenen Teilen des Dokuments hin- und herspringen zu müssen.
 
@@ -38,7 +38,7 @@ Aufgrund dieses Aufbaus kann es zu inhaltlichen Dopplungen zwischen den einzelne
 
 Die folgende Tabelle gibt einen schnellen Überblick über die Berechtigungen der verschiedenen Benutzerklassen innerhalb des App Stores.
 
-| Funktion / Aktion | Student | Lehrender | Admin |
+| Funktion / Aktion | Student | Dozent | Admin |
 | :--- | :---: | :---: | :---: |
 | Login am System (via Keycloak) | ✅ | ✅ | ✅ |
 | Öffentliche Apps einsehen | ✅ | ✅ | ✅ |
@@ -160,9 +160,9 @@ Diese Seite dient als zentrale Anlaufstelle für Fragen und Probleme:
 
 ---
 
-## 2. Lehrender
+## 2. Dozent
 
-Willkommen im App Store! Diese Dokumentation führt Sie durch die wichtigsten Funktionen, die Ihnen als Lehrender in der Plattform zur Verfügung stehen.
+Willkommen im App Store! Diese Dokumentation führt Sie durch die wichtigsten Funktionen, die Ihnen als Dozent in der Plattform zur Verfügung stehen.
 
 ---
 
@@ -193,7 +193,7 @@ Klicken Sie oben rechts auf Ihr **Nutzer-Icon**, öffnet sich ein kleines Menü.
 
 In der Profilansicht sehen Sie alle relevanten Account-Daten auf einen Blick:
 * Vorname, Nachname und E-Mail-Adresse
-* Ihre Rolle (Lehrender)
+* Ihre Rolle (Dozent)
 * Registrierungsdatum sowie System-IDs (Benutzer-ID und Keycloak-ID)
 
 <figure style="margin-bottom: 30px;">
@@ -205,7 +205,7 @@ In der Profilansicht sehen Sie alle relevanten Account-Daten auf einen Blick:
 
 ### Apps anlegen und einreichen
 
-Über den Menüpunkt **Apps** in der linken Seitenleiste gelangen Sie zur App-Übersicht. Als Lehrender können Sie neue Apps hinzufügen und zur Überprüfung vorschlagen.
+Über den Menüpunkt **Apps** in der linken Seitenleiste gelangen Sie zur App-Übersicht. Als Dozent können Sie neue Apps hinzufügen und zur Überprüfung vorschlagen.
 
 1. Klicken Sie in der App-Übersicht oben rechts auf den Button **+ App hinzufügen**.
 2. Vergeben Sie einen **Namen** und tragen Sie eine **Beschreibung** ein (Markdown wird unterstützt).
@@ -241,7 +241,7 @@ Wenn Sie die App selbst hinzugefügt haben, stehen Ihnen zusätzlich **Bearbeite
 
 ### Kurse verwalten
 
-Über den Menüpunkt **Kurse** sehen Sie alle auf der Plattform angelegten Kurse. Bearbeiten oder löschen können Sie jedoch nur die Kurse, in denen Sie selbst als Lehrender hinterlegt sind.
+Über den Menüpunkt **Kurse** sehen Sie alle auf der Plattform angelegten Kurse. Bearbeiten oder löschen können Sie jedoch nur die Kurse, in denen Sie selbst als Dozent hinterlegt sind.
 
 **Neuen Kurs anlegen:** Klicken Sie auf **Kurs erstellen** oder **Ersten Kurs anlegen**. Tragen Sie im Fenster den gewünschten Namen ein und bestätigen Sie mit **Erstellen**.
 
@@ -499,7 +499,7 @@ Auf der Detailseite einer App stehen Ihnen mit aktivierter Admin-Ansicht zusätz
 * **Bearbeiten / Löschen:** Oben rechts auf der Übersichtsseite.
 * **Deploy-Version festlegen:** Über den Button **Version festlegen** legen Sie fest, welche Version für alle Nutzer beim Deployment vorausgewählt wird. Nur freigegebene Versionen können festgelegt werden.
 * **Tab App Store:** Sichtbarkeit der App umschalten und Freigabe-Status der Versionen einsehen.
-* **Link zum Git-Repository:** Unter dem App-Namen wird der Link zum Quell-Repository angezeigt. Dieser Link ist nur in der Admin-Ansicht sichtbar — Lehrende und Studenten sehen ihn auf der App-Detailseite nicht. Den Git-Link finden alle Rollen jedoch auf der Deployment-Detailseite unter dem Bereich **App**.
+* **Link zum Git-Repository:** Unter dem App-Namen wird der Link zum Quell-Repository angezeigt. Dieser Link ist nur in der Admin-Ansicht sichtbar — Dozenten und Studenten sehen ihn auf der App-Detailseite nicht. Den Git-Link finden alle Rollen jedoch auf der Deployment-Detailseite unter dem Bereich **App**.
 
 <figure style="margin-bottom: 30px;">
   <img src="img/App_Details_1_admin.png" alt="App-Details Admin" width="80%">
@@ -510,13 +510,13 @@ Auf der Detailseite einer App stehen Ihnen mit aktivierter Admin-Ansicht zusätz
 
 ### Kurse verwalten
 
-In der Kursverwaltung sehen Sie als Admin alle auf der Plattform angelegten Kurse und können jeden davon bearbeiten oder löschen. Der Ablauf ist identisch mit dem der Lehrenden-Rolle (siehe Abschnitt 2).
+In der Kursverwaltung sehen Sie als Admin alle auf der Plattform angelegten Kurse und können jeden davon bearbeiten oder löschen. Der Ablauf ist identisch mit dem der Dozenten-Rolle (siehe Abschnitt 2).
 
 ---
 
 ### Deployments
 
-Über den Menüpunkt **Deployments** sehen Sie als Admin die Deployments **aller Nutzer**. Der Deployment-Prozess und die Detailansicht sind identisch mit der Lehrenden-Rolle (siehe Abschnitt 2).
+Über den Menüpunkt **Deployments** sehen Sie als Admin die Deployments **aller Nutzer**. Der Deployment-Prozess und die Detailansicht sind identisch mit der Dozenten-Rolle (siehe Abschnitt 2).
 
 <figure style="margin-bottom: 30px;">
   <img src="img/Alle_Deployments_admin.png" alt="Alle Deployments Admin" width="80%">
