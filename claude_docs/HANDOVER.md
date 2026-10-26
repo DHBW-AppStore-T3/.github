@@ -24,6 +24,8 @@ Jede Session liest dieses Dokument zu Beginn und aktualisiert es vor dem Abschlu
 - [x] `dev`-Branch org-weit angelegt und gepusht.
 - [x] CI-Workflows in allen Repositories auf `dev`-Trunk + Test Coverage Gate für `main` umgestellt.
 - [x] Skills aufgeräumt, redundant gewordene Aliase (`ship-feature`) entfernt, Skills radikal gekürzt (kontext-schonend) und Superpowers `systematic-debugging` ergänzt.
+- [ ] GitHub MCP & OpenStack MCP in `deployment/agent/config.yaml` aktivieren (warten auf Read-Only-PAT bzw. `clouds.yaml`).
+- [ ] `frontend/claude_docs/` mit Architektur-Inhalten befüllen (Unterordner angelegt, Dateien noch leer).
 
 ---
 
@@ -35,5 +37,6 @@ Jede Session liest dieses Dokument zu Beginn und aktualisiert es vor dem Abschlu
 ---
 
 ## 4. Letzte Übergaben (Historie)
+- **2026-09-23:** Lokales Harness-Setup durchgeführt: alle 6 Repos auf `DHBW-AppStore-T3` umgestellt und gepullt; globale Symlinks für `/tdd`, `/ship-feature`, `code-reviewer` nach `~/.claude/` gesetzt; `frontend/claude_docs/` Unterordner angelegt; `moodle_appstore` + `self-service-ui` geklont und mit `HANDOVER.md` ausgestattet.
 - **2026-09-18 (Harness Streamlining & Best Practice):** Skills radikal verschlankt (kein Kontext-Bloat); `ship-feature`-Duplikat entfernt; Superpowers-Sammlung (`tdd`, `systematic-debugging`) und ECC (`code-reviewer`) sauber als Core-Toolkits neben den 2 Projekt-Flows (`user-story`, `harness-workflow`) geordnet; globale Symlinks aktualisiert.
 - **2026-09-18:** Reengineering auf 2 Flows (`user-story`, `harness-workflow`); alle 7 offenen grünen PRs gemergt; `dev`-Branches org-weit ausgerollt.
