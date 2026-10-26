@@ -314,7 +314,9 @@ Wenn Sie die App selbst hinzugefügt haben, stehen Ihnen zusätzlich **Bearbeite
 </figure>
 
 5. **Schritt Variablen:** Konfigurieren Sie die App-spezifischen Einstellungen (abhängig von der jeweiligen App).
-   * **Standardwerte:** Die Felder sind bereits vorausgefüllt.
+   * **Ressourcen (CPU & RAM):** Falls die App eine Ressourcenauswahl erlaubt, erscheint ein Schieberegler-Bereich. Bei **Container-Apps** wird in halben vCPUs und MiB skaliert; bei **VM-Apps (KubeVirt)** in ganzen vCPUs und GiB.
+   * **Netzwerkeinstellungen:** Falls die App Netzwerkoptionen freigibt (Internetzugang oder Pod-Netzwerk), erscheint ein ausklappbarer Bereich „Netzwerkeinstellungen". Aktivieren Sie die gewünschten Optionen.
+   * **Standardwerte:** Die App-Variablen sind bereits vorausgefüllt.
    * **Geltungsbereich (Scope):** Je nach App werden Variablen für das gesamte Deployment, pro Team oder pro Nutzer abgefragt.
    * **Info-Button:** Über das Info-Symbol (i) neben dem Variablennamen öffnet sich ein Tooltip mit der Beschreibung und Formatierungshinweisen.
    * **Datei-Uploads:** Manche Apps erlauben das Hochladen von Dateien per Drag-and-Drop. Eine einzelne Datei darf **maximal 2 MB** groß sein, das Gesamtvolumen **maximal 10 MB**.
@@ -497,6 +499,7 @@ Auf der Detailseite einer App stehen Ihnen mit aktivierter Admin-Ansicht zusätz
 * **Bearbeiten / Löschen:** Oben rechts auf der Übersichtsseite.
 * **Deploy-Version festlegen:** Über den Button **Version festlegen** legen Sie fest, welche Version für alle Nutzer beim Deployment vorausgewählt wird. Nur freigegebene Versionen können festgelegt werden.
 * **Tab App Store:** Sichtbarkeit der App umschalten und Freigabe-Status der Versionen einsehen.
+* **Link zum Git-Repository:** Unter dem App-Namen wird der Link zum Quell-Repository angezeigt. Dieser Link ist nur in der Admin-Ansicht sichtbar — Lehrende und Studenten sehen ihn auf der App-Detailseite nicht. Den Git-Link finden alle Rollen jedoch auf der Deployment-Detailseite unter dem Bereich **App**.
 
 <figure style="margin-bottom: 30px;">
   <img src="img/App_Details_1_admin.png" alt="App-Details Admin" width="80%">
