@@ -1,5 +1,7 @@
 # App-Entwickler-Anleitung
 
+> **Hinweis (Oktober 2026, [#12](https://github.com/DHBW-AppStore-T3/.github/issues/12)):** Dieses Dokument beschreibt teilweise den früheren Ablauf, bei dem Apps als OpenStack-VMs ausgerollt wurden (Packer, Terraform, OpenStack-Credentials, Quotas, Infrastructure-Ansicht). Alle Apps laufen inzwischen als **Pods** im Kubernetes-Cluster und werden über eine `appstore.yaml` beschrieben (Vertrag und Beispiele: [app-registry](https://github.com/DHBW-AppStore-T3/app-registry)). Die Windows-App folgt über KubeVirt. Aussagen zu den genannten VM-Themen sind überholt; das Dokument wird bei Gelegenheit überarbeitet.
+
 Diese Anleitung richtet sich an App-Entwickler, die eine App für die Click-n-Deploy-Plattform bauen wollen. Sie beschreibt alle Anforderungen und Möglichkeiten — von der minimalen App bis hin zu erweiterten Funktionen wie Packer-Images, User-Management und File-Uploads.
 
 ### Autoren

@@ -5,6 +5,8 @@ Jede Session liest dieses Dokument zu Beginn und aktualisiert es vor dem Abschlu
 
 ---
 
+> **Stand Oktober 2026:** Epic [#12](https://github.com/DHBW-AppStore-T3/.github/issues/12) entfernt den OpenStack-VM-Pfad aus allen Repos; alle Apps laufen als Pods, die Windows-App folgt über KubeVirt.
+
 ## 1. Status & Fokus
 - **Rolle:** Zentrales Dokumentations-, Governance- und Standard-Repository der Organisation `DHBW-AppStore-T3`.
 - **Harness Core:** Vollständig auf die 2 Flows ausgerichtet (`docs/HARNESS.md`, `docs/GET_STARTED_WITH_HARNESS.md`).
