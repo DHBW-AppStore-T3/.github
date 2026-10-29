@@ -40,4 +40,4 @@ Branch-Protection erzwungen und hier nicht wiederholt.
 **Sicherheit & Doku**
 
 - [ ] Keine Secrets, Tokens oder Credentials im Diff
-- [ ] `claude_docs/HANDOVER.md` aktualisiert; `docs/HARNESS.md` aktualisiert, falls eine Harness-Entscheidung geändert wurde
+- [ ] Doku: `claude_docs/HANDOVER.md` aktualisiert; `docs/HARNESS.md`, falls eine Harness-Entscheidung geändert wurde; übrige `docs/` (Endnutzer-Doku, Entwicklerguide, Technologiestack, Diagramme in `c4/`, `er/`, `sequenz/`, `ci-cd/`) nachgezogen, falls betroffen

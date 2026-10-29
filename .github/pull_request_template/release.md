@@ -40,3 +40,4 @@ Die Änderungs-Checklisten der enthaltenen PRs werden hier nicht wiederholt.
 - [ ] Org-Standards: Änderungen an Templates, `SECURITY.md` oder `profile/` sind für alle betroffenen Repos und die öffentliche Org-Seite gewollt
 - [ ] Harness: Geänderte Skills, Hooks und Docs sind mit den Repos konsistent (genannte Befehle, Pfade und Branches existieren), und das Team ist über geänderte Abläufe informiert
 - [ ] Sicherheit: Keine Secrets, Tokens oder Credentials im gesamten Release-Diff
+- [ ] Doku: `docs/` (Endnutzer-Doku, Entwicklerguide, Technologiestack, Diagramme) und `profile/README.md` beschreiben den Stand der Repos, der jetzt gilt
