@@ -88,7 +88,7 @@ clouds:
 
 ### Option A: Template der Organisation nutzen (empfohlen)
 
-Das Template-Repository unter [six7-click-n-deploy/template-app](https://github.com/six7-click-n-deploy/template-app) auf GitHub öffnen und oben rechts auf **"Use this template"** → **"Create a new repository"** klicken. Anschließend das neue Repository lokal klonen:
+Das Template-Repository unter [DHBW-AppStore-T3/template-app](https://github.com/DHBW-AppStore-T3/template-app) auf GitHub öffnen und oben rechts auf **"Use this template"** → **"Create a new repository"** klicken. Anschließend das neue Repository lokal klonen:
 
 ```bash
 git clone <DEINE_REPO_URL>
@@ -855,8 +855,8 @@ Zu jedem Release **muss** eine umfassende Beschreibung erstellt werden (siehe un
 
 ### App registrieren
 
-Bei **privaten Repositories** muss zunächst der Collaborator `six7clickndeploy` hinzugefügt werden, damit der AppStore Zugriff hat:
-**Settings → Collaborators → Add people → `six7clickndeploy`**
+Bei **privaten Repositories** muss zunächst der technische GitHub-Account der Organisation als Collaborator hinzugefügt werden, damit der AppStore Zugriff hat. Den genauen Account-Namen erfahren Sie von Ihrer Administration:
+**Settings → Collaborators → Add people → `<technischer-github-account>`**
 
 Bei öffentlichen Repositories ist dieser Schritt nicht notwendig.
 

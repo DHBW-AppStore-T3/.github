@@ -1,9 +1,7 @@
 # QS-Maßnahmen — Beleg der Durchführung
 
-> **Hinweis (Oktober 2026, [#12](https://github.com/DHBW-AppStore-T3/.github/issues/12)):** Dieses Dokument beschreibt teilweise den früheren Ablauf, bei dem Apps als OpenStack-VMs ausgerollt wurden (Packer, Terraform, OpenStack-Credentials, Quotas, Infrastructure-Ansicht). Alle Apps laufen inzwischen als **Pods** im Kubernetes-Cluster und werden über eine `appstore.yaml` beschrieben (Vertrag und Beispiele: [app-registry](https://github.com/DHBW-AppStore-T3/app-registry)). Die Windows-App folgt über KubeVirt. Aussagen zu den genannten VM-Themen sind überholt; das Dokument wird bei Gelegenheit überarbeitet.
-
-> **Projekt:** OpenStack AppStore (six7-click-n-deploy)
-> **Organisation:** [`github.com/six7-click-n-deploy`](https://github.com/six7-click-n-deploy)
+> **Projekt:** OpenStack AppStore (DHBW-AppStore-T3)
+> **Organisation:** [`github.com/DHBW-AppStore-T3`](https://github.com/DHBW-AppStore-T3)
 > **Stand:** 25.07.2026
 > **Zweck:** Nachweis der durchgeführten Qualitätssicherungs­maßnahmen im Studienprojekt.
 
@@ -30,10 +28,10 @@ Der Code ist auf vier eigenständige Repositories aufgeteilt, die jeweils eine v
 
 | Repository | Rolle | Sprache/Stack |
 |---|---|---|
-| [`frontend`](https://github.com/six7-click-n-deploy/frontend) | Single-Page-App (AppStore-UI) | Vue 3, TypeScript, Vite |
-| [`backend`](https://github.com/six7-click-n-deploy/backend) | REST-API | FastAPI, Python 3.11 |
-| [`worker`](https://github.com/six7-click-n-deploy/worker) | Async-Deployment-Worker | Celery, Python 3.11 |
-| [`deployment`](https://github.com/six7-click-n-deploy/deployment) | Infrastruktur & CD | Terraform, Ansible |
+| [`frontend`](https://github.com/DHBW-AppStore-T3/frontend) | Single-Page-App (AppStore-UI) | Vue 3, TypeScript, Vite |
+| [`backend`](https://github.com/DHBW-AppStore-T3/backend) | REST-API | FastAPI, Python 3.11 |
+| [`worker`](https://github.com/DHBW-AppStore-T3/worker) | Async-Deployment-Worker | Celery, Python 3.11 |
+| [`deployment`](https://github.com/DHBW-AppStore-T3/deployment) | Infrastruktur & CD | Terraform, Ansible |
 
 ---
 
@@ -49,7 +47,7 @@ Dieser Prozess ist in allen vier Repositories technisch über ein Ruleset „pro
 - Löschschutz für `main` (`deletion`)
 - kein Force-Push (`non_fast_forward`)
 
-Ein [Pull-Request-Template](https://github.com/six7-click-n-deploy/frontend/blob/main/.github/pull_request_template.md) führt Reviewer zusätzlich durch eine strukturierte Checkliste (Art der Änderung, Testnachweis, Self-Review, i18n, Typisierung).
+Ein [Pull-Request-Template](https://github.com/DHBW-AppStore-T3/frontend/blob/main/.github/pull_request_template.md) führt Reviewer zusätzlich durch eine strukturierte Checkliste (Art der Änderung, Testnachweis, Self-Review, i18n, Typisierung).
 
 ### 2.2 Belegbare Kennzahlen (Stand 25.07.2026)
 
@@ -57,7 +55,7 @@ Ein [Pull-Request-Template](https://github.com/six7-click-n-deploy/frontend/blob
 
 > `deployment` ist ein reines Infrastruktur-/CD-Repo (kaum Anwendungscode) und wird hier nicht mitgezählt — die QS erfolgt dort über Gitleaks-Secret-Scan und IaC-Scan (Abschnitt 5.4/5.5).
 >
-> Nachprüfbar im PR-Tab jedes Repos, z. B. [`frontend/pulls`](https://github.com/six7-click-n-deploy/frontend/pulls?q=is%3Apr).
+> Nachprüfbar im PR-Tab jedes Repos, z. B. [`frontend/pulls`](https://github.com/DHBW-AppStore-T3/frontend/pulls?q=is%3Apr).
 
 ---
 
@@ -89,9 +87,9 @@ Alle drei Code-Repos publizieren ihren Coverage-Report automatisch auf GitHub Pa
 
 | Repository | Coverage-Report |
 |---|---|
-| `frontend` | [six7-click-n-deploy.github.io/frontend](https://six7-click-n-deploy.github.io/frontend/) |
-| `backend` | [six7-click-n-deploy.github.io/backend](https://six7-click-n-deploy.github.io/backend/) |
-| `worker` | [six7-click-n-deploy.github.io/worker](https://six7-click-n-deploy.github.io/worker/) |
+| `frontend` | [DHBW-AppStore-T3.github.io/frontend](https://DHBW-AppStore-T3.github.io/frontend/) |
+| `backend` | [DHBW-AppStore-T3.github.io/backend](https://DHBW-AppStore-T3.github.io/backend/) |
+| `worker` | [DHBW-AppStore-T3.github.io/worker](https://DHBW-AppStore-T3.github.io/worker/) |
 
 ---
 
@@ -135,13 +133,13 @@ Der `image-scan`-Job baut das produktive Docker-Image und scannt es mit Trivy au
 
 | Repository | Container-Image |
 |---|---|
-| `frontend` | [ghcr.io/six7-click-n-deploy/frontend](https://github.com/six7-click-n-deploy/frontend/pkgs/container/frontend) |
-| `backend` | [ghcr.io/six7-click-n-deploy/backend](https://github.com/six7-click-n-deploy/backend/pkgs/container/backend) |
-| `worker` | [ghcr.io/six7-click-n-deploy/worker](https://github.com/six7-click-n-deploy/worker/pkgs/container/worker) |
+| `frontend` | [ghcr.io/DHBW-AppStore-T3/frontend](https://github.com/DHBW-AppStore-T3/frontend/pkgs/container/frontend) |
+| `backend` | [ghcr.io/DHBW-AppStore-T3/backend](https://github.com/DHBW-AppStore-T3/backend/pkgs/container/backend) |
+| `worker` | [ghcr.io/DHBW-AppStore-T3/worker](https://github.com/DHBW-AppStore-T3/worker/pkgs/container/worker) |
 
 ### 5.4 Secret-Scanning (Gitleaks)
 
-Das `deployment`-Repo betreibt einen dedizierten [Secret-Scan-Workflow](https://github.com/six7-click-n-deploy/deployment/blob/main/.github/workflows/secret-scan.yml) mit Gitleaks als Pre-Merge-Gate:
+Das `deployment`-Repo betreibt einen dedizierten [Secret-Scan-Workflow](https://github.com/DHBW-AppStore-T3/deployment/blob/main/.github/workflows/secret-scan.yml) mit Gitleaks als Pre-Merge-Gate:
 
 - Scannt die vollständige Git-Historie (`fetch-depth: 0`) auf versehentlich committete Tokens, SSH-Keys und OpenStack-Credentials
 - Zwei-Pass-Muster: blockierendes Gate + SARIF-Emit in den Security Tab
@@ -196,10 +194,10 @@ Die vollständige Run-Historie jeder Pipeline ist im **Actions-Tab** des jeweili
 
 | Repository | Workflow-Historie |
 |---|---|
-| `frontend` | [Actions](https://github.com/six7-click-n-deploy/frontend/actions/workflows/ci.yml) |
-| `backend` | [Actions](https://github.com/six7-click-n-deploy/backend/actions/workflows/ci.yml) |
-| `worker` | [Actions](https://github.com/six7-click-n-deploy/worker/actions/workflows/ci.yml) |
-| `deployment` | [Actions](https://github.com/six7-click-n-deploy/deployment/actions) |
+| `frontend` | [Actions](https://github.com/DHBW-AppStore-T3/frontend/actions/workflows/ci.yml) |
+| `backend` | [Actions](https://github.com/DHBW-AppStore-T3/backend/actions/workflows/ci.yml) |
+| `worker` | [Actions](https://github.com/DHBW-AppStore-T3/worker/actions/workflows/ci.yml) |
+| `deployment` | [Actions](https://github.com/DHBW-AppStore-T3/deployment/actions) |
 
 > Die Historie enthält auch fehlgeschlagene Läufe — die Gates greifen also und fangen fehlerhafte Änderungen vor dem Merge nach `main` ab.
 
