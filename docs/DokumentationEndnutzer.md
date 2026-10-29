@@ -1,17 +1,5 @@
 # Endnutzer Dokumentation
 
-### Autoren
-1. **Tom Weber** *(Dokumentationsteil: Allgemein, Student)*
-2. **Paulina Clauss** *(Dokumentationsteil: Dozent)*
-3. **Monika Pjano** *(Dokumentationsteil: Admin)*
-
-### Reviewer (Prüfer)
-1. **Luca Baeck**
-2. **Okan Soenmez**
-3. **Leon Priemer**
-4. **Iven Stahl**
-5. **Max Meinel**
-
 ---
 
 ## 0. Allgemein
@@ -108,11 +96,6 @@ Oben auf der Seite sehen Sie den Namen und das Logo der App sowie die Beschreibu
 
 **Deployment-Button:**
 Als Student haben Sie keine Berechtigung, selbst ein Deployment zu starten. Der Button ist für Sie gesperrt. Diese Ansicht dient Ihnen rein der Information.
-
-<figure style="margin-bottom: 30px;">
-  <img src="img/App_Details_1.png" alt="Detailseite einer App" width="80%">
-  <figcaption style="font-size: 0.9em; color: #555;">App-Details: Übersicht und Beschreibung</figcaption>
-</figure>
 
 ---
 
@@ -240,11 +223,6 @@ Wenn Sie auf eine App-Kachel klicken, öffnet sich die Detailseite. Diese bietet
 
 **Versionsauswahl & Deployment:**
 Auf der rechten Seite befindet sich eine fixierte Box. Wählen Sie die gewünschte Version aus und klicken Sie auf den Button **Jetzt Deployen**, um den Deployment-Prozess zu starten.
-
-<figure style="margin-bottom: 30px;">
-  <img src="img/app_übersicht.png" alt="App-Details" width="80%">
-  <figcaption style="font-size: 0.9em; color: #555;">App-Details: Übersicht und Deployment starten</figcaption>
-</figure>
 
 Wenn Sie die App selbst hinzugefügt haben, stehen Ihnen zusätzlich **Bearbeiten** und **Löschen** oben rechts zur Verfügung. Über den Tab **App Store** steuern Sie die Sichtbarkeit und können Versionen zur Freigabe einreichen.
 
