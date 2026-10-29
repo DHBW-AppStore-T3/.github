@@ -180,49 +180,47 @@ partition "Build & Registry Phase" {
         **Komponenten:**
         - ghcr.io/.../backend:latest
         - ghcr.io/.../frontend:latest
-        - ghcr.io/.../worker:latest
+        - ghcr.io/.../worker:latest (Digest wird gepinnt)
     end note
     
     #palegreen:✓ Images verfügbar in Registry;
 }
 
-|DHBW OpenStack Server|
+|deployment-Repo (GitOps)|
 
-partition "Production Deployment (Pull-basiert)" {
-    
+partition "Deployment (GitOps, Pull-basiert)" {
+
     note right
-        **Problem:** DHBW OpenStack nur via VPN erreichbar
-        **Lösung:** Server pullt Images selbst
-        
-        **Deployment-Methode:**
-        - Docker Compose mit ghcr.io Images
-        - Manuelle Image Updates via docker pull
-        - Oder Watchtower für Auto-Update
+        **Problem:** Der Cluster ist nur via VPN erreichbar
+        **Lösung:** Argo CD zieht den Soll-Zustand aus Git
+
+        **Ablauf:**
+        - CI startet k8s-bump.yml mit dem Image-Digest
+        - Digest landet in k8s/images/<env>.yaml
+        - dev: Commit (Staging), main: Bump-PR (Prod)
     end note
-    
-    :docker pull ghcr.io/.../backend:latest;
-    :docker pull ghcr.io/.../frontend:latest;
-    :docker pull ghcr.io/.../worker:latest;
-    
-    :docker-compose down;
-    :docker-compose up -d;
-    
-    :Health Checks durchführen;
+
+    :k8s-bump.yml schreibt den Digest\nin k8s/images/<umgebung>.yaml;
+
+    |Kubernetes-Cluster (k3s)|
+
+    :Argo CD erkennt die Änderung;
+    :Helm-Chart appstore wird synchronisiert\n(Migrations-Hook, Rolling Update);
+
+    :Health prüfen;
     note right
         **Health Checks:**
-        - Backend: /health
-        - Frontend: curl localhost:3000
-        - PostgreSQL: pg_isready
-        - RabbitMQ: rabbitmq-diagnostics ping
+        - Pods ready (Readiness-Probes)
+        - Argo-Application Healthy/Synced
+        - Lesend über appstore-mcp
     end note
-    
-    if (Alle Services healthy?) then (ja)
+
+    if (Application healthy?) then (ja)
         #palegreen:✓ Deployment erfolgreich;
     else (nein)
         #lightcoral:✗ Deployment fehlgeschlagen;
-        :Logs prüfen;
-        :docker-compose logs;
-        :Rollback durchführen;
+        :Digest in k8s/images/<umgebung>.yaml\nauf den letzten Stand zurücksetzen;
+        :Argo CD stellt den alten Stand her;
     endif
 }
 
@@ -231,13 +229,13 @@ stop
 legend bottom
     **Architektur-Begründung:**
     
-    **Problem:** DHBW OpenStack ist nur via VPN erreichbar
+    **Problem:** Der Cluster ist nur via VPN erreichbar
     → GitHub Actions kann nicht direkt deployen
     
-    **Lösung:** Pull-basiertes Deployment
-    ✓ Server pullt Images manuell oder automatisiert
-    ✓ GitHub Container Registry (ghcr.io) öffentlich zugänglich
-    ✓ Keine eingehenden Verbindungen nötig
+    **Lösung:** GitOps mit Argo CD
+    ✓ Argo CD zieht den Soll-Zustand aus dem deployment-Repo
+    ✓ Rollback = Digest zurücksetzen
+    ✓ Keine eingehenden Verbindungen und keine Cluster-Zugangsdaten in GitHub
     ✓ VPN-Restriktion umgangen
     
     **Code Quality Standards:**

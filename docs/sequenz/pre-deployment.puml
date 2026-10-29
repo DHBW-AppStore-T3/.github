@@ -6,7 +6,7 @@
 title Pre-Deployment Process - Sequence Diagram
 
 actor "User" as User
-participant "Frontend\n[Container: Vue.js]" as Frontend
+participant "Frontend\n[Container: React]" as Frontend
 participant "Backend API\n[Container: FastAPI]" as Backend
 database "PostgreSQL\n[Container: Database]" as Database
 participant "Git Service\n[Backend Component]" as GitService
@@ -115,7 +115,7 @@ deactivate Frontend
 User -> Frontend: Select version
 activate Frontend
 
-Frontend -> Backend: GET /apps/{app_id}/variables\n?version={version}
+Frontend -> Backend: GET /apps/{app_id}/variables\n?version={version}\n(und GET /apps/{app_id}/runtime)
 activate Backend
 
 Backend -> Backend: get_current_user_keycloak()
@@ -125,43 +125,32 @@ activate Database
 Database --> Backend: app object
 deactivate Database
 
-Backend -> GitService: clone_release_vars()
+Backend -> GitService: Version am Commit lesen\n(sparse clone, nur appstore.yaml)
 activate GitService
 
-GitService -> GitService: create temp directory
-'\ndeployment_id =\n"vars_{app_id}_{version}"
-
-GitService -> Git: git pull 
-' --filter=blob:none\n--sparse {git_url}
+GitService -> Git: git fetch (anonym, öffentliches Repository)\nsparse checkout: appstore.yaml
 activate Git
-note right
-  with sparse checkout:
-  - terraform/variables.tf
-  - packer/variables.pkr.hcl
-end note
 Git --> GitService: repo_path (local)
 deactivate Git
 
 GitService --> Backend: repo_path
 deactivate GitService
 
-Backend -> Backend: parse_terraform_variables()
+Backend -> Backend: app_spec.read_spec_from_repo()\nappstore.yaml parsen und gegen die\nPlattform-Grenzen prüfen
 note right
-  Extracts for each variable:
-  - name
-  - type (string, number, etc.)
-  - description
-  - default value
-  - required (bool)
-  - openstack_type (network,
-    flavor, security_group, etc.)
-  - source: "terraform"
+  Fehlt die Datei: 422 appstore_yaml_missing
+  Ungültig: 422 mit Feldpfaden (errors)
+  Ergebnis: Runtime (kubernetes | kubevirt-vm),
+  Scope, Ressourcen-/Netzwerkwahl, Zugang
 end note
 
-Backend -> Backend: parse_packer_variables()
+Backend -> Backend: spec_variables()
 note right
-  Same extraction as Terraform
-  - source: "packer"
+  Je Variable aus appstore.yaml:
+  - name, type (string | enum | file)
+  - default, values (enum)
+  - scope (deployment | team)
+  - Dateiendungen (file)
 end note
 
 Backend -> Backend: cleanup_repository()
