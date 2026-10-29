@@ -1,7 +1,5 @@
 # Endnutzer Dokumentation
 
----
-
 ## 0. Allgemein
 
 **Voraussetzungen für den Systemzugang**
