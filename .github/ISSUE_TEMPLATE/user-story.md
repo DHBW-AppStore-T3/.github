@@ -35,8 +35,8 @@ assignees: ""
   - Request Model: `...`
   - Response Model: `...`
 - **Datenbank & Modelle (SQLAlchemy / Alembic):**
-- **Worker Tasks & Queues (Celery / RabbitMQ / Redis):**
-- **Frontend UI & State (Vue 3 / Pinia / Tailwind):**
+- **Worker-Jobs & Queue (Postgres-Queue `pgq`, `task_contract.py`):**
+- **Frontend UI & State (React / Zustand / Tailwind):**
 
 ---
 

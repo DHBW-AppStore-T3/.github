@@ -7,60 +7,32 @@ title Error Handling - Sequence Diagram
 
 participant "Backend API\n[Container: FastAPI]" as Backend
 database "PostgreSQL\n[Container: Database]" as Database
-queue "RabbitMQ\n[Container: Message Broker]" as RabbitMQ
-participant "Celery Worker\n[Container: Python]" as Worker
+participant "Pod-Deployer\n[Container: Python]" as Worker
+participant "Kubernetes-API\n[External System]" as K8s
 
-alt Task fails at any step
+alt Task schlägt in einem Schritt fehl
 
     activate Worker
-    Worker -> Worker: catch Exception
-    note right
-        Will be thrown if one of the steps in the Background Task Execution fails
-    end note
+    Worker -> Worker: Exception abfangen\n(Fehler in einer Phase, Zeitlimit,\nCancel oder ungültige Spec)
 
-    Worker -> Worker: collect_terraform_state()\nif terraform_dir exists
+    Worker -> K8s: _cleanup_after_failure:\nNamespace dep-<8 hex> löschen,\nfalls er zu diesem Deployment gehört
+    activate K8s
+    K8s --> Worker: Namespace entfernt
+    deactivate K8s
 
-
-    Worker -> Worker: collect_terraform_outputs()\nif terraform_dir exists
-
-    Worker -> Worker: git_service.cleanup_repository()
-
-    
-
-    Worker -> RabbitMQ: emit task-failed event\n{type: 'task-failed',\nuuid: celery_task_id,\nexception: Failure(...)}
+    Worker -> Database: Status FAILED, finished_at, failure_kind\n(worker_failure | infrastructure | time_limit),\nLogs und versiegelte Ergebnisse
     deactivate Worker
-    activate RabbitMQ
-    note right
-      Failure exception contains
-      JSON-encoded data:
-      {
-        error: str,
-        deployment_id: str,
-        logs: list[dict],
-        tf_state: str | None,
-        terraform_outputs: dict | None
-      }
-    end note
 
-    RabbitMQ --> Backend: event received
-    deactivate RabbitMQ
+    Database --> Backend: NOTIFY task_events (Terminal-Event)
     activate Backend
 
-    Backend -> Database: get_tasks(\ncelery_task_id)
-    activate Database
-    Database --> Backend: task object
-    deactivate Database
+    Backend -> Backend: task_finalizer erledigt die Folgearbeit genau einmal
 
-    Backend -> Backend: parse exception JSON\nvia regex extraction
     note right
-      Extracts structured data
-      from Failure exception message
+      Stirbt der Worker (z. B. kill -9), läuft die Lease ab:
+      der Reconciler setzt die Task auf FAILED (worker_lost),
+      ein zweiter Lauf findet nicht statt.
     end note
-
-    Backend -> Database: update_task(\ntaskId,\n{status: FAILED,\nfinished_at: utcnow(),\nlogs: formatted logs + error,\ntf_state: partial state,\noutputs: partial outputs})
-    activate Database
-    Database --> Backend: updated task
-    deactivate Database
 
     deactivate Backend
 

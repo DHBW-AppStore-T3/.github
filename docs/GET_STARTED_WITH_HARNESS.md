@@ -228,12 +228,13 @@ fehl, du merkst es sofort, nicht erst im Nachhinein.
 Was davon noch **nicht** technisch erzwungen ist (siehe
 `HARNESS.md`-Statusabschnitt), gilt weiterhin als Team-Konvention:
 
-- **Nie `docker compose -f docker-compose.prod.yml`** von deinem
-  lokalen Rechner aus — Prod läuft ausschließlich über die
-  Staging→Prod-Pipeline in `deployment/`.
-- **Nie eine `.env`-Datei committen.** Alle vier `docker-compose.*.yml`
-  in `deployment/` erwarten Secrets aus lokalen, nicht versionierten
-  `.env`-Dateien.
+- **Nie direkt gegen den Prod-Cluster arbeiten** (`kubectl apply`,
+  `helm upgrade`, `argocd app sync` von deinem Rechner aus). Prod läuft
+  ausschließlich über Git: Änderungen auf `dev` (Staging), danach
+  `k8s/promote.sh` im `deployment`-Repo (PR `dev` -> `main`).
+- **Nie eine `.env`-Datei oder Secrets committen.** Die lokale `.env`
+  (aus `.env.example`, `make env`) bleibt unversioniert; Cluster-Secrets
+  legt `k8s/bootstrap.sh` direkt im Cluster an.
 - **Alembic-Migrationen nie unbeaufsichtigt laufen lassen** — immer
   mit einem Menschen gegenlesen, bevor sie gegen eine geteilte
   Datenbank (staging/prod) angewendet werden.
@@ -257,15 +258,19 @@ bei GitHub automatisch — kein zusätzliches manuelles Einrichten nötig:
 - Beim Öffnen eines PRs im `.github`-Repo wird das Template automatisch geladen — bitte ausfüllen, nicht leeren.
 - Secrets niemals committen — das `.gitignore` ist eine Sicherheitslinie, kein Netz. Prüfe vor jedem `git add` mit `git status`.
 
-## 9. Server-Zugriff — `appstore-prod-01` (OpenStack-Projekt
-`ma_wwi_24sea_appstore_g3`, 10 Docker-Container: nginx, frontend,
-backend, worker, keycloak, postgres ×2, rabbitmq, redis). **Das ist
-scharfe Produktion, keine Test-VM.**
+## 9. Cluster-Zugriff
 
-Für Menschen: Zugriff läuft aktuell über den `ubuntu`-User (Public Key
-in `authorized_keys` hinterlegt, frag im Team um Zugang). Dieser User
-hat passwortlosen Sudo — sei entsprechend vorsichtig, jeder Befehl
-läuft effektiv als root.
+Staging und Produktion laufen auf einem k3s-Cluster im OpenStack-Projekt
+`ma_wwi_24sea_appstore_g3` (ein Node, nur IPv6/VPN), ausgerollt per
+Argo CD aus dem `deployment`-Repo. **Das ist scharfe Produktion, keine
+Test-Umgebung.** Aufbau und Betrieb: `deployment/k8s/README.md` und
+`deployment/claude_docs/HANDOVER.md`.
+
+Für Menschen: Cluster-Zugang (VPN, `kubectl`-Kontext) gibt es auf Nachfrage
+im Team. Für den Alltag brauchst du ihn nicht: Rollout, Rollback und
+Self-Heal laufen über Git und Argo CD. Eigene OpenStack-Zugangsdaten
+(`clouds.yaml`) brauchst du für die Entwicklung nicht; der AppStore selbst
+kennt keine OpenStack-Credentials mehr.
 
 **Für einen Agenten gilt das nicht.** Der frühere VM-Agent Hermes (Discord)
 wurde durch den Remote-MCP-Server **`appstore-mcp`** ersetzt (siehe
@@ -283,22 +288,6 @@ claude mcp add --transport http appstore https://appstore-mcp-staging.t3-k8s.s24
 
 Beim ersten Aufruf öffnet sich der GitHub-Login (OAuth).
 
-Falls du selbst noch keinen OpenStack-Zugriff (nicht denselben wie
-SSH-auf-die-VM, sondern für Terraform/die OpenStack-API) eingerichtet
-hast:
-
-1. Login: <https://newstack.dhbw.cloud> über BWIDM/DHBW-Login
-2. SSH-Public-Key hochladen: Project → Key Pairs → Import
-   — nutze nach Möglichkeit einen **separaten** Key, nicht deinen
-   privaten Alltags-Key
-3. `clouds.yaml` herunterladen: Account → OpenStack RC File, ablegen
-   unter `~/.config/openstack/clouds.yaml`
-4. Testen: `openstack server list`
-
-**VM-Namensregeln:** nur Buchstaben, Ziffern, Bindestriche — **keine
-Umlaute**. Ein falscher Hostname bricht DNS und die VM lässt sich nur
-löschen, nicht reparieren.
-
 ## 10. Deployment-Ops-Skills (im `deployment`-Repo)
 
 Die früheren VM-/Hermes-Ops-Skills (`/diagnose-production`, `/deploy-status`,
@@ -315,7 +304,7 @@ schreibenden Server-Zugang für Agents mehr.
 1. User formuliert Feature: `"Ich will Feature <X>"`
 2. Der Agent stellt gezielte **Klarifizierungsfragen** (Persona, Scope, betroffene Repos, Randbedingungen) -> User antwortet.
 3. Der Agent erarbeitet **Design Specs** und bietet mindestens 2 Architektur-Optionen zur Auswahl an -> User wählt Option.
-4. Der Agent erarbeitet **Implementierungs-Specs** (OpenAPI Endpunkte, DB-Modelle, Celery-Tasks, UI, TDD-Plan) und bietet technische Detailoptionen -> User wählt Option / bestätigt.
+4. Der Agent erarbeitet **Implementierungs-Specs** (OpenAPI Endpunkte, DB-Modelle, Worker-Jobs, UI, TDD-Plan) und bietet technische Detailoptionen -> User wählt Option / bestätigt.
 5. Der Agent legt das Issue vollautomatisch via `gh issue create` an und gibt die Issue-Nummer `#<ID>` zurück.
 
 ### Flow 2: Harness Workflow (`/harness-workflow`)
@@ -324,7 +313,7 @@ schreibenden Server-Zugang für Agents mehr.
 3. TDD-Loop: Failing Tests -> minimale Implementierung -> grün -> Refactoring -> OpenAPI-Sync (`make openapi` / `npm run openapi:generate`) -> lokale Checks.
 4. Agent öffnet PR auf `dev` (`gh pr create --base dev`).
 5. Sobald alle Required CI-Checks grün sind, führt der Agent automatisch den Merge auf `dev` durch (`gh pr merge --squash`).
-6. Staging-Deployment startet automatisch bei Push/Merge auf `dev` (`deployment/.github/workflows/staging.yml`).
+6. Staging-Deployment startet automatisch bei Push/Merge auf `dev`: die CI des Service-Repos baut das Image und startet `k8s-bump.yml` im `deployment`-Repo, das den Digest einträgt; Argo CD rollt aus.
 7. Der Agent prüft Staging read-only über `appstore-mcp` (Pods, Events, Logs, Argo-Health) und meldet: `"Feature fertig & deployed! Issue #<ID>, System Health: GUT / SCHLECHT"`.
 8. **Push auf `main` (Produktion):** Bleibt rein menschlich! Auf `main` erzwingt das **Test Coverage Gate**, dass die Testabdeckung nicht absinkt.
 

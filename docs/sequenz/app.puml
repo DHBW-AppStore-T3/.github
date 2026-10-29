@@ -2,7 +2,7 @@
 title App erstellen (Backend-Flow – Git-Link erforderlich)
 
 actor "User" as User
-participant "Frontend\n[Container: Vue.js]" as Frontend
+participant "Frontend\n[Container: React]" as Frontend
 participant "Backend API\n[Container: FastAPI]" as Backend
 participant "Git Repository\n[External System]" as Git
 database "PostgreSQL\n[Container: Database]" as Database

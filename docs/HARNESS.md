@@ -4,7 +4,7 @@ Wie Claude Code in der `DHBW-AppStore-T3`-Organisation aufgesetzt ist,
 und warum. Die Setup-Anleitung steht in
 [`GET_STARTED_WITH_HARNESS.md`](GET_STARTED_WITH_HARNESS.md).
 
-## Der Rahmen: sechs Repos, eine laufende Prod-VM
+## Der Rahmen: sechs Repos, ein Kubernetes-Cluster
 
 Der AppStore ist **sechs eigenständige Git-Repositories** unter einer
 gemeinsamen GitHub-Org, kein Monorepo:
@@ -12,17 +12,21 @@ gemeinsamen GitHub-Org, kein Monorepo:
 | Repo | Stack | Rolle |
 |---|---|---|
 | [`backend`](https://github.com/DHBW-AppStore-T3/backend) | FastAPI, SQLAlchemy 2.0, PostgreSQL | REST-API, App-Definitionen, stößt Deploys an |
-| [`frontend`](https://github.com/DHBW-AppStore-T3/frontend) | Vue 3, Pinia, Tailwind | Web-UI für Dozierende/Studierende |
-| [`worker`](https://github.com/DHBW-AppStore-T3/worker) | Celery, RabbitMQ, Redis | führt Terraform/Packer-Deploys asynchron aus, streamt Logs per SSE |
-| [`deployment`](https://github.com/DHBW-AppStore-T3/deployment) | Docker Compose, Terraform, Ansible, Caddy, Keycloak, Forgejo | hält dev/staging/prod zusammen |
+| [`frontend`](https://github.com/DHBW-AppStore-T3/frontend) | React 19, Vite, Zustand, Tailwind | Web-UI für Dozierende/Studierende |
+| [`worker`](https://github.com/DHBW-AppStore-T3/worker) | Python, Job-Queue auf PostgreSQL (`pgq`) | der `pod-deployer`: rendert und wendet die Kubernetes-/KubeVirt-Objekte einer App an, schreibt Fortschritt als Events (das Backend streamt sie per SSE) |
+| [`deployment`](https://github.com/DHBW-AppStore-T3/deployment) | Helm-Charts, Argo CD, k3s, CloudNativePG, Keycloak, Traefik | hält lokal/staging/prod zusammen (Digest-Dateien je Umgebung) |
 | [`moodle_appstore`](https://github.com/DHBW-AppStore-T3/moodle_appstore) | Moodle-Fork | LTI-Integrationsziel |
 | [`self-service-ui`](https://github.com/DHBW-AppStore-T3/self-service-ui) | Fork von [pfisterer/self-service-ui](https://github.com/pfisterer/self-service-ui) | Referenzimplementierung |
 
-Und es gibt eine **echte Produktions-VM**: `appstore-prod-01` auf
-OpenStack, 10 Docker-Container (nginx, frontend, backend, worker,
-keycloak, 2× postgres, rabbitmq, redis, tfstate-postgres), Uptime im
-Wochenbereich. Jede Entscheidung unten gilt gegen dieses scharfe
-System, nicht gegen ein Zielbild.
+Und es gibt ein **echtes Produktivsystem**: einen k3s-Cluster im
+OpenStack-Projekt `ma_wwi_24sea_appstore_g3` (ein Node), den Argo CD aus dem
+`deployment`-Repo bespielt. Staging (Branch `dev`, Namespace
+`appstore-staging`) und Produktion (Branch `main`, Namespace `appstore-prod`)
+teilen sich den Node. Alle Apps laufen als Pods oder KubeVirt-VMs im Cluster;
+den früheren OpenStack-VM-Pfad (Packer, OpenTofu, Credentials) gibt es seit
+[#12](https://github.com/DHBW-AppStore-T3/.github/issues/12) nicht mehr.
+Jede Entscheidung unten gilt gegen dieses scharfe System, nicht gegen ein
+Zielbild.
 
 ---
 
@@ -100,8 +104,8 @@ claude_docs/
 ```
 architecture/
 ├── overview.md
-├── queues.md              # RabbitMQ-Routing, Retry-Verhalten
-└── sse-streaming.md       # Redis-Pub/Sub → Server-Sent-Events ans Frontend
+├── queues.md              # Postgres-Queue (pgq), Lease, Wiederzustellung
+└── sse-streaming.md       # task_events → Server-Sent-Events (im Backend)
 HANDOVER.md
 ```
 
@@ -109,7 +113,7 @@ HANDOVER.md
 ```
 architecture/
 ├── overview.md
-├── state.md               # Pinia-Stores, welcher State wo lebt
+├── state.md               # Zustand (Zustand-Stores), welcher State wo lebt
 ├── api-client.md          # Axios-Setup & OpenAPI-Typengenerierung
 └── routing.md
 HANDOVER.md
@@ -118,15 +122,10 @@ HANDOVER.md
 **`deployment/claude_docs/`**
 ```
 claude_docs/
-├── topology/
-│   ├── environments.md    # dev / staging / prod, was sie unterscheidet
-│   ├── boot-order.md      # Caddy → Keycloak → backend → worker → frontend
-│   └── networking.md      # welcher Dienst spricht mit welchem, welche Ports
-├── decisions/
-├── rollback/
-│   ├── database.md        # Alembic-Downgrade-Pfad
-│   └── service.md         # einzelnen Container zurückrollen
+├── decisions/             # z. B. appstore-on-kubernetes, postgres-queue
 └── HANDOVER.md
+k8s/README.md              # Aufbau, Komponenten, Rechte, Netzwerk-Policies
+docs/                      # dev-setup (lokaler k3d-Stack), prod-setup
 ```
 
 `moodle_appstore` und `self-service-ui` bekommen vorerst nur ein
@@ -154,11 +153,12 @@ Unterordner statt Inhalte zu duplizieren.
 
 1. FastAPI generiert nativ OpenAPI 3.1 aus Pydantic-Modellen.
 2. `make openapi` exportiert die aktuelle `openapi.json` im CI.
-3. Das Frontend konsumiert das Schema via `npm run openapi:generate` —
+3. Das Frontend konsumiert das Schema via `npm run gen:api-types` —
    TypeScript-Typen werden generiert, nicht von Hand gepflegt.
-   Ändert das Backend ein Feld, schlägt `vue-tsc` sofort fehl.
-4. Celery-Tasks zwischen `backend` und `worker` nutzen typisierte
-   Pydantic-Payload-Modelle statt Markdown-Tabellen.
+   Ändert das Backend ein Feld, schlägt der Typecheck sofort fehl.
+4. Jobs zwischen `backend` und `worker` laufen über die Postgres-Queue
+   (`task_contract.py`, in beiden Repos identisch und per Hash-Test
+   abgesichert) statt über Markdown-Tabellen.
 
 ### 1.4 Graphify — global über alle sechs Repos
 
@@ -308,7 +308,7 @@ User: "Ich will Feature <X>"
   │     └─► User-Auswahl
   │
   ├─► Implementierungs-Specs
-  │     └─► OpenAPI 3.1, DB-Modelle, Celery-Tasks, TDD-Plan
+  │     └─► OpenAPI 3.1, DB-Modelle, Worker-Jobs, TDD-Plan
   │     └─► User-Bestätigung
   │
   └─► GitHub Issue erstellt via gh issue create (#<ID>)
@@ -359,7 +359,7 @@ User: "Bau mir Issue #<ID>"
 3. **Design Specs mit Optionen:** Mindestens 2 architektonische Optionen
    mit Trade-offs. Der Mensch wählt die Richtung.
 4. **Implementierungs-Specs:** OpenAPI 3.1 Schemas, SQLAlchemy-Modelle,
-   Celery-Tasks, UI-Komponenten. Nach User-Bestätigung:
+   Worker-Jobs, UI-Komponenten. Nach User-Bestätigung:
 5. **Issue-Erstellung:**
    ```bash
    gh issue create --label user-story,ready-for-dev
@@ -407,7 +407,7 @@ User: "Bau mir Issue #<ID>"
 
 ---
 
-## Status (Stand 2026-09-18)
+## Status (Stand 2026-10-29)
 
 | System | Status |
 |---|---|
@@ -418,8 +418,7 @@ User: "Bau mir Issue #<ID>"
 | 5 · Die 2 Harness-Flows | ✅ Flow 1 `/user-story` + Flow 2 `/harness-workflow`; Push auf `main` rein menschlich + Test Coverage Gate |
 | 6 · GitHub Best Practices | ✅ `SECURITY.md`, `PULL_REQUEST_TEMPLATE.md`, `dependabot.yml`, `.gitignore` |
 
-**Verbleibend, kein Blocker:**
-1. `python-openstackmcp-server` aktivieren, sobald lese-beschränkte `clouds.yaml` vorliegt.
+**Verbleibend, kein Blocker:** keiner. Ein OpenStack-MCP ist nicht mehr vorgesehen: Agents haben keinen OpenStack-Zugang, Cluster-Einblick liefert `appstore-mcp`.
 
 **Bekannte, nicht behebbare Lücke:** `members_can_delete_repositories`
 / `members_can_change_repo_visibility` lassen sich über die GitHub-API
