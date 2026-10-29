@@ -36,9 +36,10 @@ Setzt ein spezifiziertes GitHub-Issue autonom via TDD um, mergt auf `dev` und ve
 6. **Automatisches Staging Deployment:**
    - Push auf `dev` startet `deployment/.github/workflows/staging.yml` automatisch.
 
-7. **Hermes Discord Status:**
-   - Staging-Healthcheck prüft Container & Endpunkte.
-   - Meldet Status & System Health (GUT / SCHLECHT) nach Discord.
+7. **Staging-Health über `appstore-mcp`:**
+   - Einmalige Anbindung: `claude mcp add --transport http appstore https://appstore-mcp-staging.t3-k8s.s242437-at-student-dhbw-mannheim-de.users.dhbw.site/mcp` (beim ersten Aufruf GitHub-Login).
+   - Nach dem Staging-Rollout (Argo CD) prüft der Agent read-only Pods, Events, Logs und Argo-Health über `appstore-mcp`.
+   - Meldet Status & System Health (GUT / SCHLECHT) im Chat/PR; kein Discord, kein Schreibzugriff auf den Cluster.
 
 8. **Menschliches Gate (Push to `main`):**
    - Push/Merge auf `main` (Produktion) ist **strikt menschlich**.

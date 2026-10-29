@@ -196,7 +196,7 @@ Unser Team setzt direkt auf die **offiziellen Open-Source-Plugins** von Claude C
 - **Flow 1: User Story Generierung (`/user-story`):**
   Interaktiver Klärungsdialog: Feature-Wunsch -> Klarifizierungsfragen -> Design-Specs mit Optionen -> Implementierungs-Specs mit Optionen -> automatisches GitHub-Issue.
 - **Flow 2: Harness Workflow (`/harness-workflow`):**
-  "Bau mir Issue #ID" -> Branch von `dev` -> TDD (via Superpowers-Plugin) -> Pre-PR Review (via ECC Agent) -> PR auf `dev` -> CI Gates abwarten -> Auto-Merge auf `dev` -> Staging-Deployment -> Hermes Discord Meldung & System Health.
+  "Bau mir Issue #ID" -> Branch von `dev` -> TDD (via Superpowers-Plugin) -> Pre-PR Review (via ECC Agent) -> PR auf `dev` -> CI Gates abwarten -> Auto-Merge auf `dev` -> Staging-Deployment -> Health-Check über `appstore-mcp` (GUT / SCHLECHT).
 
 ### Automatisches Setup für jedes Teammitglied:
 Führe nach dem Klonen einfach das Setup-Skript im `.github`-Repo aus:
@@ -267,14 +267,21 @@ in `authorized_keys` hinterlegt, frag im Team um Zugang). Dieser User
 hat passwortlosen Sudo — sei entsprechend vorsichtig, jeder Befehl
 läuft effektiv als root.
 
-**Für einen Agenten gilt das nicht.** Der einzige Server-Agent ist
-**Hermes** — er läuft containerisiert auf der VM und kommuniziert über
-Discord (Allowlist: `DISCORD_ALLOWED_USERS`). Ein separater
-`claude-agent`-Host-User wurde bewusst verworfen (siehe `HARNESS.md`
-Abschnitt 3.2). Der Coding-Agent (Claude Code auf deinem Rechner) hat
-keinen direkten SSH-Zugriff auf `appstore-prod-01` — alles Schreibende
-läuft über die CI/CD-Pipeline oder über Hermes nach expliziter
-menschlicher Freigabe.
+**Für einen Agenten gilt das nicht.** Der frühere VM-Agent Hermes (Discord)
+wurde durch den Remote-MCP-Server **`appstore-mcp`** ersetzt (siehe
+`HARNESS.md` Abschnitte 2.1 und 3.2). Der Coding-Agent (Claude Code auf
+deinem Rechner) hat keinen SSH-Zugriff auf Server und keinen
+Schreibzugriff auf den Cluster — er sieht Cluster, Argo CD und CI nur
+lesend über `appstore-mcp`. Alles Schreibende läuft über Git und die
+CI/CD-Pipeline (Push auf `dev` -> Digest-Bump -> Argo CD).
+
+Einmalige Anbindung in Claude Code:
+
+```bash
+claude mcp add --transport http appstore https://appstore-mcp-staging.t3-k8s.s242437-at-student-dhbw-mannheim-de.users.dhbw.site/mcp
+```
+
+Beim ersten Aufruf öffnet sich der GitHub-Login (OAuth).
 
 Falls du selbst noch keinen OpenStack-Zugriff (nicht denselben wie
 SSH-auf-die-VM, sondern für Terraform/die OpenStack-API) eingerichtet
@@ -294,12 +301,11 @@ löschen, nicht reparieren.
 
 ## 10. Deployment-Ops-Skills (im `deployment`-Repo)
 
-Die deploy- und vm-spezifischen Ops-Skills liegen in `deployment/.claude/skills/`:
-- `/diagnose-production` — Feste Diagnosereihenfolge (Health → Logs → Deploys → OpenStack)
-- `/deploy-status` — Status Staging vs. Prod
-- `/restart-service` — Einzige erlaubte Schreibaktion auf der VM, geschützt durch `appstore-prod-guardrail.py`
-- `/verify-staging` — Nach einem Merge in `dev`: postet `@hermes /verify-staging`
-  als Comment auf den PR; Hermes prüft Container-Health und postet das Ergebnis auf Discord
+Die früheren VM-/Hermes-Ops-Skills (`/diagnose-production`, `/deploy-status`,
+`/restart-service`, `/verify-staging`) sind abgelöst: Diagnose und
+Staging-Verifikation laufen read-only über den MCP-Server `appstore-mcp`
+(Abschnitt 9), Rollout und Self-Heal über Argo CD. Es gibt keinen
+schreibenden Server-Zugang für Agents mehr.
 
 ## 11. Die 2 Flows im Entwickler-Alltag
 
@@ -319,7 +325,7 @@ Die deploy- und vm-spezifischen Ops-Skills liegen in `deployment/.claude/skills/
 4. Agent öffnet PR auf `dev` (`gh pr create --base dev`).
 5. Sobald alle Required CI-Checks grün sind, führt der Agent automatisch den Merge auf `dev` durch (`gh pr merge --squash`).
 6. Staging-Deployment startet automatisch bei Push/Merge auf `dev` (`deployment/.github/workflows/staging.yml`).
-7. Hermes meldet Status in Discord: `"Feature fertig & deployed! Issue #<ID>, System Health: GUT / SCHLECHT"`.
+7. Der Agent prüft Staging read-only über `appstore-mcp` (Pods, Events, Logs, Argo-Health) und meldet: `"Feature fertig & deployed! Issue #<ID>, System Health: GUT / SCHLECHT"`.
 8. **Push auf `main` (Produktion):** Bleibt rein menschlich! Auf `main` erzwingt das **Test Coverage Gate**, dass die Testabdeckung nicht absinkt.
 
 ## Wenn etwas an diesem Setup schon wieder veraltet ist

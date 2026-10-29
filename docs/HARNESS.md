@@ -187,54 +187,39 @@ Aktualität auf zwei Ebenen ohne teures LLM-Rebuild:
 
 ## 2. Deployment-Ops — Skills & MCP
 
-### 2.1 MCP-Server: `podman-mcp`
+### 2.1 MCP-Server: `appstore-mcp`
 
-Läuft produktiv auf `appstore-prod-01` und ist der einzige schreibende
-Server-Zugang von Hermes:
+Ersetzt den früheren VM-Agenten Hermes (Discord, `podman-mcp`, OpenStack-MCP).
+`appstore-mcp` ist ein öffentlicher Remote-MCP-Server (Repo `appstore-mcp`),
+läuft als Pod im Cluster (Argo-App `staging-mcp`) und gibt Agents einen
+**read-only** Einblick in Cluster, Argo CD und CI. Nach einem automatischen
+Staging-Push holt sich der Agent damit Health-Feedback, ohne Schreibrechte.
 
-| MCP | Zweck |
+| Eigenschaft | Wert |
 |---|---|
-| [`manusa/podman-mcp-server`](https://github.com/manusa/podman-mcp-server) | Container-Status, Logs, gezielte Restarts |
-| [`openstack-kr/python-openstackmcp-server`](https://github.com/openstack-kr/python-openstackmcp-server) | Server-/Netzwerk-Status über OpenStack-REST-API (`clouds.yaml`) |
+| Endpoint Staging | `https://appstore-mcp-staging.<zone>/mcp` (Streamable HTTP) |
+| Auth | OAuth 2.1 (Dynamic Client Registration, Login über GitHub-OAuth-App, Scope `read:org`) oder statische Tokens; ohne Token `401` mit `WWW-Authenticate` |
+| Image | per Digest gepinnt (`k8s/images/<env>.yaml`, geschrieben von `k8s-bump.yml`) |
+| Rechte | ClusterRole + RoleBindings nur `get`/`list`/`watch` (Pods, Logs, Events, Deployments, Jobs, Ingresses, Argo-Applications, CNPG, cert-manager, Metrics); **keine Secrets, kein `exec`, kein Schreiben**. CI-Test: `k8s/tests/check_mcp_rbac.py` |
 
-**GitHub-Interaktion erfolgt ausschließlich über `gh` CLI** — kein
-`github-mcp-server`. Der Agent ruft direkt `gh issue view`, `gh pr create`,
-`gh pr merge`, `gh run watch` etc. auf; das reicht für alle Flow-2-Schritte
-ohne zusätzlichen MCP-Overhead.
+Einbindung in Claude Code:
 
-**Drei echte Bugs beim `podman-mcp`-Rollout (dokumentiert, damit sie
-nicht wiederholt werden):**
-
-1. **`quay.io/manusa/podman-mcp-server` existiert nicht** — kein
-   Container-Image veröffentlicht. Fix: eigenes Dockerfile
-   (`deployment/agent/podman-mcp.Dockerfile`) mit dem offiziellen
-   Release-Binary.
-2. **`cli`-Implementierung sucht nur nach `podman`**, nie `docker`. Fix:
-   `podman`→`docker` Symlink im Image, `--podman-impl cli` erzwingen.
-3. **Prozess beendet sich sofort** — `ServeStdio(ctx)` blockiert auf
-   Stdin, bekommt sofort EOF. Fix: `stdin_open: true` im Compose-File.
-
-**Vierte Beobachtung:** Hermes verbindet MCP nur beim eigenen Start. Startet
-`podman-mcp` nach `hermes-agent`, bleibt die Verbindung tot bis zum
-Neustart von Hermes. `depends_on` in Compose reicht nicht — es ordnet
-nur die Startreihenfolge. Fix: Healthcheck-Abhängigkeit oder `docker restart hermes-agent-prod` nach stabilem `podman-mcp`.
-
-### 2.2 OpenStack-MCP — vorbereitet, nicht deployt
-
-In `deployment/agent/config.yaml` konfiguriert, aber auskommentiert
-bis zur lese-beschränkten `clouds.yaml`. Kein eingebauter Read-Only-Modus
-(verifiziert gegen den Quellcode): `get_*`/`create_*`/`delete_*` liegen
-gleichwertig nebeneinander. Die Allowlist in `agent/config.yaml` (nur
-`get_*`) ist die Guardrail, kein Server-Flag.
-
-### 2.3 Ops-Skills (im `deployment`-Repo)
-
+```bash
+claude mcp add --transport http appstore https://appstore-mcp-staging.<zone>/mcp
 ```
-deployment/.claude/skills/
-├── /diagnose-production   # podman-mcp Health → Logs → OpenStack-Zustand
-├── /deploy-status         # Container Health + CI-Status via gh run list
-└── /restart-service       # einzige schreibende Aktion, feste Namens-Allowlist
-```
+
+Beim ersten Aufruf öffnet sich der GitHub-Login. Die Prod-Instanz bleibt
+deaktiviert, bis die Staging-Abnahme durch ist.
+
+**GitHub-Interaktion erfolgt weiterhin ausschließlich über `gh` CLI** — kein
+`github-mcp-server`.
+
+### 2.2 Ops-Skills (im `deployment`-Repo)
+
+Die Skills `/diagnose-production`, `/deploy-status` und `/restart-service`
+gehörten zum Hermes-/Podman-Modell (VMs) und sind durch `appstore-mcp`
+(Diagnose) sowie Argo CD (Rollout, Self-Heal) abgelöst. Es gibt keinen
+schreibenden Server-Zugang für Agents mehr.
 
 ---
 
@@ -259,24 +244,15 @@ deployment/.claude/skills/
 | `deployment` | Gitleaks (Secret-Scan) |
 | `moodle_appstore`, `self-service-ui` | keine — externe Fork-CI, nur PR-Pflicht |
 
-### 3.2 Server-Agent Hermes (`appstore-prod-01`)
+### 3.2 Agent-Zugriff auf den Cluster (`appstore-mcp`)
 
-**Discord ist der Kommunikationsweg, nicht SSH:**
-- `DISCORD_ALLOWED_USERS` (Discord-User-IDs) ist die tatsächliche
-  Zugriffsgrenze — jede Nachricht durchläuft diese Prüfung.
-- Bot bleibt **"Public Bot: OFF"** — einladbar nur über manuell
-  konstruierte URL.
-- SSH bleibt parallel bestehen als direkter Wartungskanal.
-
-**Rechte-Grenze:** Der `docker.sock`-Mount macht `podman-mcp`
-root-äquivalent zum Host. Die tatsächliche Grenze ist deshalb der
-**MCP-Tool-Filter in `agent/config.yaml`** — Hermes sieht nur
-`container_list`/`container_inspect`/`container_logs`.
-
-Ergänzend: **`appstore-prod-guardrail.py` PreToolUse-Hook** für direkten
-Claude-Code-Zugriff per SSH — erlaubt nur `ps`, `logs`, `compose logs`,
-`compose restart <name>` aus einer festen Allowlist. Beide Mechanismen
-spiegeln dieselbe Allowlist an zwei Zugriffspunkten.
+Agents erhalten **keinen** Schreibzugriff auf Cluster oder Server:
+- Lesender Zugriff nur über `appstore-mcp` (OAuth/GitHub-Login bzw. Token),
+  RBAC strikt `get`/`list`/`watch`, keine Secrets.
+- Änderungen laufen ausschließlich über Git: Push auf `dev` -> CI -> Digest-Bump
+  -> Argo CD (Staging); `main` -> Bump-PR mit Required Check `🔒 Gitleaks` (Prod).
+- Es gibt keine Discord-Anbindung und keinen SSH-Pfad mehr; der
+  `appstore-prod-guardrail.py`-Hook entfällt mit den VMs.
 
 **Alembic-Migrationen:** Laufen nie automatisiert gegen staging/prod —
 immer mit expliziter menschlicher Bestätigung.
@@ -364,11 +340,11 @@ User: "Bau mir Issue #<ID>"
   │     └─► Bei GRÜN: gh pr merge --squash (automatisch)
   │
   ├─► Automatisches Staging Deployment startet
-  │     └─► Push auf `dev` triggert deployment/staging.yml (Self-Hosted Runner)
+  │     └─► Push auf `dev` -> Image-CI -> k8s-bump.yml pinnt den Digest -> Argo CD rollt aus
   │
-  ├─► Hermes schreibt in Discord
-  │     └─► Feature deployed auf Staging
-  │     └─► System Health Check: GUT / SCHLECHT (Container-Status & Endpunkte)
+  ├─► Agent prüft Staging über `appstore-mcp`
+  │     └─► Pods, Events, Logs, Argo-Health (read-only)
+  │     └─► System Health Check: GUT / SCHLECHT
   │
   └─► MENSCHLICHES GATE: Push auf `main`
         ├── 🛑 Kein automatischer Agenten-Merge auf main
@@ -405,9 +381,9 @@ User: "Bau mir Issue #<ID>"
    gh run watch            # wartet auf alle Required Checks
    gh pr merge --squash    # bei 100% grün
    ```
-6. **Automatisches Staging-Deployment:** `dev`-Merge triggert `staging.yml`.
-7. **Hermes Discord Status:** Container-Gesundheit (z. B. 10/10 UP),
-   HTTP-Status. GUT / SCHLECHT.
+6. **Automatisches Staging-Deployment:** `dev`-Merge -> Image-CI -> Digest-Bump -> Argo CD.
+7. **Health-Status über `appstore-mcp`:** Pod-/Argo-Zustand, Events und Logs
+   der Staging-Komponenten (read-only). GUT / SCHLECHT.
 8. **Menschliches Gate:** Agent stoppt nach Staging-Report.
    `main` bleibt ausnahmslos menschlich. Test Coverage Gate blockiert
    technisch bei Unterschreitung der Mindestwerte.
@@ -436,8 +412,8 @@ User: "Bau mir Issue #<ID>"
 | System | Status |
 |---|---|
 | 1 · Wissen | ✅ `claude_docs/` & `HANDOVER.md` in allen 6 Repos; OpenAPI 3.1 + CI-Export + Frontend-Codegen; lokale Graphen + Cross-Repo-Graph |
-| 2 · Deployment-Ops | ✅ `podman-mcp` läuft produktiv; `python-openstackmcp-server` konfiguriert (wartet auf Credentials); Ops-Skills in `deployment`-Repo |
-| 3 · Zugriff & Guardrails | ✅ Branch-Protection in allen 6 Repos; Hermes + Discord-Allowlist; `appstore-prod-guardrail.py`-Hook in `.github` und `deployment` aktiv |
+| 2 · Deployment-Ops | ✅ `appstore-mcp` (read-only Remote-MCP, OAuth/Token) läuft auf Staging; ersetzt Hermes/`podman-mcp` |
+| 3 · Zugriff & Guardrails | ✅ Branch-Protection in allen 6 Repos; Agents ohne Schreibzugriff (`appstore-mcp` read-only RBAC, Änderungen nur via Git/Argo CD) |
 | 4 · Engineering-Loop | ✅ Plugins `superpowers` & `ecc` via Marketplace; `setup-harness.sh` für Team-Setup |
 | 5 · Die 2 Harness-Flows | ✅ Flow 1 `/user-story` + Flow 2 `/harness-workflow`; Push auf `main` rein menschlich + Test Coverage Gate |
 | 6 · GitHub Best Practices | ✅ `SECURITY.md`, `PULL_REQUEST_TEMPLATE.md`, `dependabot.yml`, `.gitignore` |

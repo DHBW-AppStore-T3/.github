@@ -70,12 +70,12 @@ Der Einstieg in die Plattform erfolgt über den regulären Login. Sie können si
   <figcaption style="font-size: 0.9em; color: #555;">Keycloak Login</figcaption>
 </figure>
 
-Nach erfolgreichem Login landen Sie direkt auf dem **Dashboard**. Hier sehen Sie auf einen Blick drei anklickbare Kennzahl-Kacheln:
+Nach erfolgreichem Login landen Sie direkt auf dem **Dashboard**. Hier sehen Sie auf einen Blick zwei anklickbare Kennzahl-Kacheln:
 * **Deployments** — Anzahl der Deployments, in denen Sie Mitglied sind. Klicken Sie die Kachel an, um direkt zur Deployment-Übersicht zu gelangen.
 * **Apps** — Anzahl der verfügbaren Apps im Store. Klicken Sie die Kachel an, um den App-Katalog zu öffnen.
 
 <figure style="margin-bottom: 30px;">
-  <img src="img/Dashboard_mit_Credentials.png" alt="Dashboard" width="80%">
+  <img src="img/Dashboard_student.png" alt="Dashboard" width="80%">
   <figcaption style="font-size: 0.9em; color: #555;">Dashboard: Überblick über Deployments und Apps</figcaption>
 </figure>
 
@@ -125,7 +125,6 @@ Als Student haben Sie keine Berechtigung, selbst ein Deployment zu starten. Der 
 * **Übersicht:** Liste der aktiven Deployments inklusive Status-Badge (siehe unten).
 * **Details:** Klicken Sie auf ein Deployment, um allgemeine Informationen zur genutzten App, dem Besitzer und der Team-Zuteilung zu sehen.
 * **Zugangsdaten einsehen:** In der Sektion „Teams & Mitglieder" finden Sie neben Ihrem Namen Ihre persönlichen Zugangsdaten für diese App. Das Passwort ist zunächst verborgen und lässt sich über das Augen-Symbol sichtbar machen. Über kleine Symbole können Sie die Daten in die Zwischenablage kopieren.
-* **Zugang erneut senden:** Über diesen Button können Sie sich die Zugangsdaten erneut per E-Mail zuschicken lassen.
 
 > **Hinweis:** Aus Sicherheitsgründen können Sie in der Team-Liste nur Ihre eigenen Zugangsdaten einsehen, nicht die der anderen Teammitglieder.
 
@@ -187,7 +186,7 @@ Der Einstieg in die Plattform erfolgt über den regulären Login. Sie können si
   <figcaption style="font-size: 0.9em; color: #555;">Keycloak Login</figcaption>
 </figure>
 
-Nach erfolgreichem Login landen Sie direkt auf dem **Dashboard**. Hier sehen Sie auf einen Blick drei anklickbare Kennzahl-Kacheln:
+Nach erfolgreichem Login landen Sie direkt auf dem **Dashboard**. Hier sehen Sie auf einen Blick zwei anklickbare Kennzahl-Kacheln:
 * **Deployments** — Anzahl Ihrer Deployments. Klicken Sie die Kachel an, um direkt zur Deployment-Übersicht zu gelangen.
 * **Apps** — Anzahl der verfügbaren Apps im Store. Klicken Sie die Kachel an, um den App-Katalog zu öffnen.
 * **Kurse** — Anzahl Ihrer Kurse. Klicken Sie die Kachel an, um zur Kursübersicht zu gelangen.
@@ -225,7 +224,7 @@ In der Profilansicht sehen Sie alle relevanten Account-Daten auf einen Blick:
 4. Fügen Sie den **Link zu Ihrem GitHub-Repository** (als HTTPS-Link) ein.
 5. **Sichtbarkeit:** Wählen Sie zwischen **Öffentlich** und **Privat**.
 6. Haken Sie die Option **„Alle Versionen einreichen"** an, damit Ihre Git-Tags als Versionen für das Admin-Review übermittelt werden.
-7. **GitHub Collaborator (nur bei privaten Repositories):** Wenn Ihr Repository *privat* ist, müssen Sie den technischen User als Collaborator einladen. Welchen GitHub-Account Sie einladen müssen, erfahren Sie von Ihrer Administration.
+7. **Öffentliches Repository:** Das Repository muss öffentlich sein und im Wurzelverzeichnis eine `appstore.yaml` enthalten. Der AppStore liest es anonym; private Repositories werden nicht unterstützt.
 8. Klicken Sie auf **Hinzufügen**.
 
 <figure style="margin-bottom: 30px;">
@@ -364,7 +363,7 @@ Oben rechts stehen Ihnen zwei Aktionen zur Verfügung:
 * **Deployment Info:** Name, Release-Tag und Erstellungsdatum.
 * **App:** App-Name, Beschreibung und Link zum Git-Repository.
 * **Besitzer:** Nutzername, E-Mail und Rolle der Person, die das Deployment gestartet hat.
-* **Teams & Mitglieder:** Alle Teams und zugewiesenen Studierenden. Sie können Zugangsdaten einzelner Studierender einsehen und bei Bedarf über **Zugang erneut senden** per E-Mail versenden.
+* **Teams & Mitglieder:** Alle Teams und zugewiesenen Studierenden. Sie können Zugangsdaten einzelner Studierender einsehen (es werden keine Zugangsdaten per E-Mail verschickt).
 
 <figure style="margin-bottom: 30px;">
   <img src="img/Depl_detail3.png" alt="Deployment Übersicht" width="80%">
@@ -483,7 +482,7 @@ Die Einstellung wird pro Benutzer gespeichert und bleibt über Browser-Neustarts
 3. (Optional) Laden Sie ein App-Logo hoch.
 4. Fügen Sie den **Link zum GitHub-Repository** ein.
 5. Entscheiden Sie über die **Sichtbarkeit** (Öffentlich/Privat).
-6. Bei privaten Repositories: Laden Sie den technischen GitHub-User als Collaborator ein.
+6. Das Repository muss öffentlich sein und eine `appstore.yaml` enthalten (private Repositories werden nicht unterstützt).
 7. Haken Sie **„Alle Versionen einreichen"** an.
 8. Klicken Sie auf **Hinzufügen**.
 

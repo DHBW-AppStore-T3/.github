@@ -9,7 +9,7 @@ Harness-Gesamtkonzept: siehe docs/HARNESS.md
    - Ablauf: Klarifizierungsfragen -> Design Specs mit Optionen -> Implementierungs-Specs mit Optionen -> Issue auf GitHub anlegen.
 2. **Flow 2: Autonomer Harness-Workflow (`.claude/skills/harness-workflow/SKILL.md`):**
    - Trigger: *"Bau mir Issue #<ID>"*
-   - Ablauf: Branch von `dev` -> TDD-Loop -> PR auf `dev` -> CI Gates grün -> Auto-Merge auf `dev` -> Automatisches Staging Deployment -> Hermes Discord Notification (Feature fertig, System Health gut/schlecht).
+   - Ablauf: Branch von `dev` -> TDD-Loop -> PR auf `dev` -> CI Gates grün -> Auto-Merge auf `dev` -> Automatisches Staging Deployment -> Staging-Health-Check über den MCP-Server `appstore-mcp` (read-only; Feature fertig, System Health gut/schlecht).
    - Push auf `main` (Produktion) bleibt rein menschlich + Test Coverage Gate.
 
 Details zu diesem Repo:
