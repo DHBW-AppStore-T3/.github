@@ -4,20 +4,6 @@ Diese Anleitung richtet sich an App-Entwickler, die eine App für den AppStore b
 
 > **Stand Oktober 2026:** Den früheren Ablauf mit Terraform, Packer und OpenStack-Credentials gibt es nicht mehr ([#12](https://github.com/DHBW-AppStore-T3/.github/issues/12)). Beispiele und der ausführliche Vertrag liegen im Repository [app-registry](https://github.com/DHBW-AppStore-T3/app-registry). Maßgeblich ist immer der Code: `backend/app/k8s/spec.py` (Schema und Grenzen) und `backend/app/k8s/render.py` (was daraus entsteht).
 
-### Autoren
-1. **Iven Stahl**
-2. **Leon Priemer**
-
-### Reviewer (Prüfer)
-1. **Luca Baeck**
-2. **Okan Soenmez**
-3. **Paulina Clauss**
-4. **Tom Weber**
-5. **Max Meinel**
-6. **Monika Pjano**
-
----
-
 ## 1. Was ist eine App?
 
 Eine App ist ein **öffentliches Git-Repository** (GitHub) mit einer `appstore.yaml` im Wurzelverzeichnis. Die Plattform
