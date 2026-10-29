@@ -150,7 +150,7 @@ Wenn ein Deployment noch läuft (Status „Ausstehend" oder „läuft"), sehen S
 
 <figure style="margin-bottom: 30px;">
   <img src="img/Deployment_Student_2.png" alt="Zugangsdaten direkt einsehen" width="80%">
-  <figcaption style="font-size: 0.9em; color: #555;">Teams & Mitglieder: Eigene Zugangsdaten einsehen, kopieren und bei Bedarf erneut anfordern</figcaption>
+  <figcaption style="font-size: 0.9em; color: #555;">Teams & Mitglieder: Eigene Zugangsdaten einsehen und kopieren</figcaption>
 </figure>
 
 ---
@@ -497,8 +497,8 @@ Die Einstellung wird pro Benutzer gespeichert und bleibt über Browser-Neustarts
 
 Als Admin sehen Sie in der App-Übersicht **alle** bisher angelegten Apps — unabhängig davon, ob sie öffentlich oder privat sind und welcher Nutzer sie erstellt hat.
 
-* **Filterfunktion:** Filtern Sie über die Tabs nach *Alle*, *Empfohlen*, *Öffentlich* oder *Privat*.
-* **Empfohlene Apps:** Mit aktivierter Admin-Ansicht können Sie pro App einen Schalter setzen, um sie als „Empfohlen" zu markieren. Empfohlene Apps erscheinen im App-Katalog als erster Tab.
+* **Filterfunktion:** Über das Filter-Symbol neben der Suche wählen Sie *Alle*, *Öffentlich* oder *Privat* (bei empfohlenen Apps zusätzlich *Empfohlen*). Die Tabs darunter zeigen die Kategorien und Ihre Favoriten.
+* **Empfohlene Apps:** Mit aktivierter Admin-Ansicht können Sie pro App einen Schalter setzen, um sie als „Empfohlen" zu markieren. Empfohlene Apps erscheinen im App-Katalog unter dem Filter „Empfohlen“.
 
 <figure style="margin-bottom: 30px;">
   <img src="img/Overview_Apps_admin.png" alt="App-Übersicht Admin" width="80%">
@@ -531,14 +531,9 @@ In der Kursverwaltung sehen Sie als Admin alle auf der Plattform angelegten Kurs
 
 ### Deployments
 
-Über den Menüpunkt **Deployments** sehen Sie als Admin die Deployments **aller Nutzer**. Der Deployment-Prozess und die Detailansicht sind identisch mit der Dozenten-Rolle (siehe Abschnitt 2), inklusive der Status-Badge-Tabelle.
+Über den Menüpunkt **Deployments** sehen Sie als Admin – wie ein Dozent – die Deployments, die **Sie selbst angelegt** haben. Das Deployment eines anderen Nutzers öffnen Sie über dessen Direktlink; dort stehen Ihnen alle Aktionen zur Verfügung. Der Deployment-Prozess und die Detailansicht sind identisch mit der Dozenten-Rolle (siehe Abschnitt 2), inklusive der Status-Badge-Tabelle.
 
 > **Hinweis für Admins mit aktiver Admin-Ansicht:** Beim Deployment-Wizard wird Ihnen auf der App-Detailseite zusätzlich der Button **Version festlegen** angezeigt. Darüber können Sie vor dem Deployen die vorausgewählte Version für alle Nutzer festlegen.
-
-<figure style="margin-bottom: 30px;">
-  <img src="img/Alle_Deployments_admin.png" alt="Alle Deployments Admin" width="80%">
-  <figcaption style="font-size: 0.9em; color: #555;">Übersicht über alle Deployments</figcaption>
-</figure>
 
 ---
 
