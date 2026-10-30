@@ -1,0 +1,17 @@
+name: PR Checklist
+
+# Wendet den wiederverwendbaren Checklisten-Check (pr-checklist.yml) auf
+# dieses Repo selbst an. Lokaler Aufruf statt @main, damit Änderungen am
+# Check in ihrem eigenen PR schon greifen.
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize, ready_for_review]
+    branches: [main, dev]
+
+permissions:
+  contents: read
+
+jobs:
+  checklist:
+    name: PR Checklist
+    uses: ./.github/workflows/pr-checklist.yml

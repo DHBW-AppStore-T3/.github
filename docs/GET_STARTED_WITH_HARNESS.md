@@ -250,7 +250,7 @@ bei GitHub automatisch — kein zusätzliches manuelles Einrichten nötig:
 | Datei | Zweck |
 |---|---|
 | `SECURITY.md` | Org-weite Security Policy — wo Sicherheitslücken gemeldet werden (GitHub Security Advisories) |
-| `.github/PULL_REQUEST_TEMPLATE.md` | Wird bei jedem neuen PR in diesem Repo vorab ausgefüllt — enthält Checkliste mit HANDOVER.md-Pflicht |
+| `.github/pull_request_template.md` | Wird bei jedem neuen PR in diesem Repo vorab ausgefüllt — enthält Checkliste mit HANDOVER.md-Pflicht |
 | `.github/dependabot.yml` | Erstellt wöchentlich automatische PRs für veraltete GitHub Actions Versionen |
 | `.gitignore` | Schützt `.env`, `*.key`, `*.pem`, `clouds.yaml` u. a. vor versehentlichem Commit |
 
