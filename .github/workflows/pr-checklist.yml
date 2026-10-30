@@ -1,9 +1,8 @@
 name: PR Checklist
 
-# QS-Maßnahme "PR-Checkliste" — wiederverwendbarer Check für alle Repos
-# der Organisation. Blockiert den Merge, solange in der PR-Beschreibung
-# noch Checkboxen offen sind. Nicht zutreffende Punkte werden mit "n/a"
-# markiert und trotzdem abgehakt.
+# Wiederverwendbarer Check "PR-Checkliste". Schlägt fehl, solange in der
+# PR-Beschreibung noch Checkboxen offen sind. Nicht zutreffende Punkte
+# werden mit "n/a" markiert und trotzdem abgehakt.
 #
 # Die Checklisten-Punkte stehen NICHT hier, sondern im PR-Template des
 # jeweiligen Repos. Der Check vergleicht die PR-Beschreibung mit dem
@@ -37,8 +36,9 @@ name: PR Checklist
 #       name: PR Checklist
 #       uses: DHBW-AppStore-T3/.github/.github/workflows/pr-checklist.yml@main
 #
-# Blockiert erst, wenn "PR Checklist / Checkliste" in der Branch-Protection
-# von `main` und `dev` als Required Status Check eingetragen ist.
+# Der Merge ist nur blockiert, wenn "PR Checklist / Checkliste" in den
+# Rulesets von `main` und `dev` als Required Status Check eingetragen ist
+# (Ruleset "PR checklist must pass").
 on:
   workflow_call:
     inputs:
