@@ -4,7 +4,7 @@
 
 Closes #
 
-**Art der Änderung:** <!-- feat | fix | refactor | docs | ci | harness | chore — bei Breaking Change zusätzlich "BREAKING" -->
+**Art der Änderung:** <!-- feat | fix | refactor | docs | ci | harness | chore; bei Breaking Change zusätzlich "BREAKING" -->
 
 ## Prüfung
 
@@ -13,9 +13,7 @@ Closes #
 ## Checkliste
 
 <!--
-Org-weite Standard-Checkliste. Sie gilt für dieses Repo und für jedes Repo
-ohne eigenes .github/pull_request_template.md. frontend, backend, worker und
-deployment haben eigene, spezialisierte Checklisten.
+Standard-Checkliste für Änderungs-PRs.
 
 Release-PRs (`dev` oder `promote/*` → `main`) verwenden stattdessen
 `.github/pull_request_template/release.md`.
@@ -24,11 +22,10 @@ Jeder Punkt wird abgehakt, bevor der PR gemergt werden kann. Der CI-Check
 "PR Checklist" blockiert den Merge, solange hier noch ein offenes "- [ ]" steht.
 
 Trifft ein Punkt nicht zu: mit "n/a" markieren UND abhaken, z. B.
-- [x] n/a — HARNESS.md: keine Harness-Entscheidung geändert
+- [x] n/a, HARNESS.md: keine Harness-Entscheidung geändert
 
-Die reviewende Person prüft, dass die Häkchen stimmen, und bestätigt das mit
-ihrem Approval. Die Pflicht-CI-Checks werden separat über die
-Branch-Protection erzwungen und hier nicht wiederholt.
+Die Pflicht-CI-Checks werden separat über die Branch-Protection erzwungen und
+hier nicht wiederholt.
 -->
 
 **Funktionale Eignung**
