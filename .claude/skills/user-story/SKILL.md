@@ -17,7 +17,7 @@ description: "Flow 1: Interaktiver Dialog für Feature-Wünsche. Triggert auf: '
    *-> Stoppe und warte auf Antwort.*
 
 2. **Design Specs (Architektur):**
-   - Entwickle mindestens 2 Architektur-Optionen (z. B. Option A: synchron REST vs. Option B: asynchron Celery/SSE).
+   - Entwickle mindestens 2 Architektur-Optionen (z. B. Option A: synchron REST vs. Option B: asynchroner Worker-Job über die Postgres-Queue mit SSE).
    - Vergleiche Vor-/Nachteile, Komplexität und gib eine klare Empfehlung ab.
    *-> Stoppe und warte auf User-Auswahl.*
 

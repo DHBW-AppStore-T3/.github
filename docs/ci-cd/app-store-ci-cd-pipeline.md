@@ -1,5 +1,7 @@
 # Build-Prozess & CI/CD Pipeline Appstore
 
+> **Stand Oktober 2026 ([#12](https://github.com/DHBW-AppStore-T3/.github/issues/12)):** Die Plattform läuft auf Kubernetes und wird per GitOps mit Argo CD ausgerollt (Phase 5). Die frühere Docker-Compose-Variante mit Watchtower auf einer OpenStack-VM gibt es nicht mehr.
+
 Diese Pipeline beschreibt den Entwicklungsprozess, das Bauen und das Deployment der Hauptplattform selbst (Frontend, Backend, Worker).
 
 ---
@@ -224,60 +226,31 @@ Alle Checks aus Phase 2 werden **nochmal ausgeführt**:
 
 ---
 
-## Phase 5: Production Deployment (DHBW OpenStack)
+## Phase 5: Deployment per GitOps (Kubernetes, Argo CD)
 
-### Problem: VPN-Beschränkung
-**DHBW OpenStack ist nur via VPN erreichbar**
-- GitHub Actions kann nicht direkt deployen
-- Keine eingehenden Webhooks möglich
-- Keine SSH-Verbindung von außen
+Der Cluster (k3s im OpenStack-Projekt der DHBW, nur über VPN erreichbar) wird nicht von GitHub Actions angesprochen. Stattdessen **zieht** Argo CD den Soll-Zustand aus dem `deployment`-Repository. So braucht es weder eingehende Verbindungen noch Cluster-Zugangsdaten in GitHub.
 
-### Deployment-Methode: Docker Compose mit Watchtower
+### Ablauf
 
-**docker-compose.prod.yml:**
-```yaml
-services:
-  backend:
-    image: ghcr.io/six7-click-n-deploy/backend:latest
-    # ... weitere Konfiguration
-  
-  frontend:
-    image: ghcr.io/six7-click-n-deploy/frontend:latest
-    # ... weitere Konfiguration
-  
-  worker:
-    image: ghcr.io/six7-click-n-deploy/worker:latest
-    # ... weitere Konfiguration
-```
+1. Die CI eines Service-Repos (`backend`, `worker`, `frontend`, `self-service-ui`, `appstore-mcp`, `moodle_appstore`) baut das Image, scannt es (Trivy) und pusht es nach `ghcr.io/dhbw-appstore-t3/…`.
+2. Danach startet sie den Workflow `k8s-bump.yml` im `deployment`-Repo mit dem Digest des Images (nur Images, die die eigene CI gebaut hat; `image-provenance.yml`).
+3. `k8s-bump.yml` schreibt den Digest in `k8s/images/<umgebung>.yaml`:
+   - Push auf `dev`: direkter Commit auf `dev`, Umgebung **Staging** (`appstore-staging`).
+   - Push auf `main`: Bump-PR auf `main` mit dem Required Check „Gitleaks“, Umgebung **Produktion** (`appstore-prod`).
+4. Argo CD erkennt die Änderung und rollt den Chart `k8s/charts/appstore` aus. Datenbankmigrationen laufen als Hook-Job (`migrate`).
+5. Änderungen an Chart, Policies oder Keycloak-Realm gehen als PR auf `dev` und werden mit `k8s/promote.sh` nach `main` befördert (PR `dev` -> `main`).
 
-**Automatisiertes Pull-basiertes Deployment**
+### Prüfungen im `deployment`-Repo
 
-### Watchtower Konfiguration
+- `k8s-chart.yml`: Helm-Render, Schemas, Auswertung der Admission-Policy, kind-Cluster für RBAC-Tests
+- `secret-scan.yml`: Gitleaks
+- `novnc-proxy.yml`: Build und Scan des noVNC-Proxy-Images
+- `e2e-staging.yml`: Playwright-Ende-zu-Ende-Kette gegen Staging (Pod-App und VM-App)
 
-```yaml
-services:
-  watchtower:
-    image: containrrr/watchtower:latest
-    container_name: watchtower
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      - WATCHTOWER_POLL_INTERVAL=300  # 5 Minuten
-      - WATCHTOWER_CLEANUP=true       # Alte Images löschen
-      - WATCHTOWER_INCLUDE_STOPPED=false
-      - WATCHTOWER_ROLLING_RESTART=true
-    command: backend frontend worker
-    restart: unless-stopped
-```
+### Rollback
 
-**Funktionsweise:**
-1. Watchtower prüft alle 5 Minuten die Registry
-2. Vergleicht Image Digest/Hash mit lokalem Container
-3. Bei neuem Image:
-   - Pull neues Image
-   - Stop Container
-   - Start Container mit neuem Image
-   - Health Check
-4. Bei Fehler: Automatischer Rollback
+Den Digest in `k8s/images/<umgebung>.yaml` auf den vorherigen Wert zurücksetzen (Commit auf `dev` bzw. PR auf `main`). Argo CD stellt den alten Stand wieder her. Alles andere: Commit zurücknehmen.
 
----
+### Health-Check
+
+Nach einem Staging-Rollout prüfen Agents und Menschen den Zustand lesend über `appstore-mcp` (Pods, Events, Logs, Argo-Health) oder mit `kubectl -n argocd get applications | grep <env>`.

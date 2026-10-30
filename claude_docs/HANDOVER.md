@@ -5,6 +5,8 @@ Jede Session liest dieses Dokument zu Beginn und aktualisiert es vor dem Abschlu
 
 ---
 
+> **Stand Oktober 2026:** Epic [#12](https://github.com/DHBW-AppStore-T3/.github/issues/12) entfernt den OpenStack-VM-Pfad aus allen Repos; alle Apps laufen als Pods, die Windows-App folgt über KubeVirt.
+
 ## 1. Status & Fokus
 - **Rolle:** Zentrales Dokumentations-, Governance- und Standard-Repository der Organisation `DHBW-AppStore-T3`.
 - **Harness Core:** Vollständig auf die 2 Flows ausgerichtet (`docs/HARNESS.md`, `docs/GET_STARTED_WITH_HARNESS.md`).
@@ -24,6 +26,7 @@ Jede Session liest dieses Dokument zu Beginn und aktualisiert es vor dem Abschlu
 - [x] `dev`-Branch org-weit angelegt und gepusht.
 - [x] CI-Workflows in allen Repositories auf `dev`-Trunk + Test Coverage Gate für `main` umgestellt.
 - [x] Skills aufgeräumt, redundant gewordene Aliase (`ship-feature`) entfernt, Skills radikal gekürzt (kontext-schonend) und Superpowers `systematic-debugging` ergänzt.
+- [ ] `frontend/claude_docs/` mit Architektur-Inhalten befüllen (Unterordner angelegt, Dateien noch leer).
 
 ---
 
@@ -35,5 +38,7 @@ Jede Session liest dieses Dokument zu Beginn und aktualisiert es vor dem Abschlu
 ---
 
 ## 4. Letzte Übergaben (Historie)
+- **2026-10-29 (Doku nach #12 bereinigt, Branch `docs/remove-openstack-leftovers`):** `HARNESS.md`, `GET_STARTED_WITH_HARNESS.md`, `technologiestack.md`, `AppentwicklerGuide.md` (jetzt `appstore.yaml`-basiert, Beispiele gegen `parse_spec` geprüft), `ci-cd/*` (GitOps statt Compose/Watchtower) und die Sequenzdiagramme (Postgres-Queue statt RabbitMQ/Celery, Pod-Deployer statt Terraform/Packer) auf den Stand Kubernetes/KubeVirt gebracht; Issue-Template und `user-story`-Skill ohne Celery/Vue. **Offen:** `docs/c4/*.drawio` (C1–C3 zeigen noch OpenStack, RabbitMQ, Celery-Worker mit Packer/Terraform, Vue) und `docs/er/er.dbml`/`er.svg` (Stand vor Postgres-Queue und #12) müssen im Editor bzw. aus dem Backend-Schema neu erzeugt werden; `DokumentationEndnutzer.md` kommt aus PR #20 (Christina); dort zeigen noch einige Screenshots (Lehrer-/Admin-Dashboard, Deployment-Details) die alte Oberfläche; `QS-Massnahmen-Beleg.md` ist ein historischer Beleg und blieb unverändert.
+- **2026-09-23:** Lokales Harness-Setup durchgeführt: alle 6 Repos auf `DHBW-AppStore-T3` umgestellt und gepullt; globale Symlinks für `/tdd`, `/ship-feature`, `code-reviewer` nach `~/.claude/` gesetzt; `frontend/claude_docs/` Unterordner angelegt; `moodle_appstore` + `self-service-ui` geklont und mit `HANDOVER.md` ausgestattet.
 - **2026-09-18 (Harness Streamlining & Best Practice):** Skills radikal verschlankt (kein Kontext-Bloat); `ship-feature`-Duplikat entfernt; Superpowers-Sammlung (`tdd`, `systematic-debugging`) und ECC (`code-reviewer`) sauber als Core-Toolkits neben den 2 Projekt-Flows (`user-story`, `harness-workflow`) geordnet; globale Symlinks aktualisiert.
 - **2026-09-18:** Reengineering auf 2 Flows (`user-story`, `harness-workflow`); alle 7 offenen grünen PRs gemergt; `dev`-Branches org-weit ausgerollt.

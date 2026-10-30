@@ -5,109 +5,55 @@
 
 title Background Task Execution - Sequence Diagram
 
-
-
 participant "Backend API\n[Container: FastAPI]" as Backend
 database "PostgreSQL\n[Container: Database]" as Database
-queue "RabbitMQ\n[Container: Message Broker]" as RabbitMQ
-participant "Celery Worker\n[Container: Python]" as Worker
-participant "OpenStack\n[External System]" as OpenStack
-participant "Git Repository\n[External System]" as Git
+participant "Pod-Deployer\n[Container: Python]" as Worker
+participant "Kubernetes-API\n[External System]" as K8s
 
-RabbitMQ -> Worker: task message received\nfrom queue
+Database -> Worker: NOTIFY task_queued\n(Worker holt die Task:\nFOR UPDATE SKIP LOCKED)
 activate Worker
 
-Worker -> RabbitMQ: emit task-started event\n{type: 'task-started',\nuuid: celery_task_id}
-activate RabbitMQ
-
-RabbitMQ --> Backend: event received
-deactivate RabbitMQ
-activate Backend
-
-Backend -> Database: get_task(\ncelery_task_id)
-activate Database
-Database --> Backend: task object
-deactivate Database
-
-Backend -> Database: update_task(\ntaskId,\n{status: RUNNING,\nstarted_at: utcnow()})
-activate Database
-
-Database --> Backend: updated task
-deactivate Database
-
-deactivate Backend
-
-Worker -> Worker: get_openstack_credentials()\nfrom clouds.yaml
-
-Worker -> Git: git_service.clone_release(\ndeployment_id, git_url, tag)
-activate Git
-Git --> Worker: repo_path (local directory)
-deactivate Git
-
-alt packer/template.pkr.hcl exists
-
-    Worker -> Worker: image_name = appId + "-" + release
-
-    Worker -> OpenStack: check_image_exists(image_name)
-    activate OpenStack
-    OpenStack --> Worker: (exists: bool, image_id: str)
-    deactivate OpenStack
-
-    alt image does not exist
-        Worker -> Worker: PackerExecutor.init()
-
-        Worker -> Worker: merge packer_vars:\nuser_vars["packer"] +\nimage_name
-
-        Worker -> Worker: PackerExecutor.validate(\ntemplate.pkr.hcl, packer_vars) 
-        
-        Worker -> Worker: PackerExecutor.build(\ntemplate.pkr.hcl,\npacker_vars)
-    end
-end
-
-Worker -> Worker: TerraformExecutor.init()
-
-Worker -> Worker: merge terraform_vars:\nuser_vars["terraform"] +\nimage_name + users (teams)
-
-Worker -> Worker: TerraformExecutor.plan(\nvariables: terraform_vars)
-
-Worker -> OpenStack: TerraformExecutor.apply(\nvariables: terraform_vars)
-activate OpenStack
-OpenStack --> Worker: resources created
-deactivate OpenStack
-
-Worker -> Worker: collect_terraform_outputs()
-
-Worker -> Worker: collect_terraform_state()
-
-Worker -> Worker: git_service.cleanup_repository(\nrepo_path)
-
-Worker -> RabbitMQ: emit task-succeeded event\n{type: 'task-succeeded',\nuuid: celery_task_id,\nresult: {...}}
-deactivate Worker
-activate RabbitMQ
+Worker -> Database: Lease auf der Task-Zeile,\nstatus = RUNNING
+Database --> Backend: Trigger task_events_notify\n(NOTIFY task_events)
 note right
-  result = {
-    status: "success",
-    deployment_id: str,
-    logs: list[dict],
-    tf_state: str,
-    terraform_outputs: dict
-  }
+  Backend streamt die Events
+  per SSE an das Frontend
+  (GET /deployments/{id}/stream)
 end note
 
-RabbitMQ --> Backend: event received
-deactivate RabbitMQ
+Worker -> Worker: SPEC_LOAD\nappstore.yaml aus dem Job\nerneut validieren
+
+Worker -> K8s: K8S_NAMESPACE\nNamespace dep-<8 hex> anlegen\n(Label deployment-id)
+activate K8s
+K8s --> Worker: Namespace angelegt
+deactivate K8s
+
+Worker -> K8s: K8S_POLICIES\nResourceQuota, LimitRange,\nNetworkPolicies
+Worker -> K8s: K8S_APPLY\nWorkloads (StatefulSet, Service, Ingress)\nbzw. VM per Server-Side Apply
+activate K8s
+
+Worker -> K8s: K8S_WAIT_READY\nSnapshot abfragen\n(Pods / VMIs bereit?)
+K8s --> Worker: Pods bereit
+deactivate K8s
+
+Worker -> Database: Fortschritt und Logzeilen\nals Events in task_events\n(in jeder Phase)
+
+Worker -> Worker: OUTPUTS_AND_CLEANUP\nZugangsdaten und Links bauen\n(Passwörter generieren)
+
+Worker -> Database: Status SUCCESS, finished_at,\nversiegelte Ergebnisse\n(tasks.outputs_enc, Fernet)
+deactivate Worker
+
+Database --> Backend: NOTIFY task_events (Terminal-Event)
 activate Backend
-
-Backend -> Database: get_tasks(\ncelery_task_id)
-activate Database
-Database --> Backend: task object
-deactivate Database
-
-Backend -> Database: update_task(\ntaskId,\n{status: SUCCESS,\nfinished_at: utcnow(),\nlogs: json.dumps(result['logs']),\ntf_state: result['tf_state'],\noutputs: json.dumps(result['terraform_outputs'])})
-activate Database
-Database --> Backend: updated task
-deactivate Database
-
+Backend -> Backend: Reconciler / task_finalizer\nerledigt die Folgearbeit genau einmal
+Backend -> Database: Deployment-Status aktualisieren
 deactivate Backend
+
+note over Worker, K8s
+  Bricht der Worker ab (kill -9), erkennt der Reconciler den Ablauf der Lease:
+  Task endet als FAILED (worker_lost), kein zweiter Lauf.
+  Cancel: POST /deployments/{id}/cancel setzt cancel_requested_at und sendet
+  NOTIFY task_cancel; der Worker prüft es in jeder Warteschleife.
+end note
 
 @enduml

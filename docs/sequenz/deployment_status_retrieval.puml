@@ -6,12 +6,12 @@
 title Deployment Status Retrieval - Sequence Diagram
 
 actor "User" as User
-participant "Frontend\n[Container: Vue.js]" as Frontend
+participant "Frontend\n[Container: React]" as Frontend
 participant "Backend API\n[Container: FastAPI]" as Backend
 database "PostgreSQL\n[Container: Database]" as Database
-queue "RabbitMQ\n[Container: Message Broker]" as RabbitMQ
+participant "Kubernetes-API\n[External System]" as K8s
 
-User -> Frontend: View deployment details
+User -> Frontend: Deployment-Details öffnen
 activate Frontend
 
 Frontend -> Backend: GET /deployments/{id}
@@ -19,9 +19,9 @@ activate Backend
 
 Backend -> Backend: get_current_user_keycloak()
 
-Backend -> Backend: ensure_resource_access(\ndeployment.userId, current_user)
+Backend -> Backend: Zugriff prüfen (Besitzer, Mitglied,\nKurs-Lehrender oder Admin)
 
-Backend -> Database: get_deployment(\ndeploymentId)\nwith eager loading
+Backend -> Database: get_deployment(deploymentId)\nmit Beziehungen
 activate Database
 note right
   deployment.user
@@ -29,21 +29,24 @@ note right
   deployment.tasks
   deployment.teams
 end note
-Database --> Backend: Deployment with relations
+Database --> Backend: Deployment mit Beziehungen
 deactivate Database
 
 note right
-  status is derived
-  from deployment.tasks:
-  - Latest task status
-  - PENDING/RUNNING/SUCCESS/FAILED
+  Status wird aus dem letzten
+  Task abgeleitet:
+  PENDING / RUNNING / SUCCESS / FAILED / CANCELLED
 end note
 
-Backend --> Frontend: DeploymentWithRelations
+opt K8S_STATUS_ENABLED
+  Backend -> K8s: Live-Status der Workloads lesen\n(nur dep-*-Namespaces, nur lesend)
+  K8s --> Backend: Pods / VMs
+end
 
+Backend --> Frontend: DeploymentWithRelations\n(permissions und actions)
 deactivate Backend
 
-Frontend --> User: Display deployment:\n- status (from tasks)\n- logs (from latest task)\n- outputs (from latest task)
+Frontend --> User: Status, Workloads, Logs (SSE)\nund eigene Zugangsdaten (GET /my-access)
 deactivate Frontend
 
 @enduml

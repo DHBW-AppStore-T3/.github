@@ -1,3 +1,6 @@
+// ACHTUNG: Stand vor Postgres-Queue (.github#5) und Entfernung des OpenStack-VM-Pfads (.github#12).
+// Es fehlen u. a. task_events, die Freigabe-/Runtime-Spalten und outputs_enc; celeryTaskId und tf_state gibt es nicht mehr.
+// Aktuelles Schema: backend/claude_docs/architecture/database.md und backend/app/models.py. Diagramm neu erzeugen.
 // ER-Diagramm basierend auf aktueller Datenbankstruktur
 
 Table users {

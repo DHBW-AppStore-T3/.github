@@ -6,242 +6,114 @@
 title Deployment Process - Sequence Diagram
 
 actor "User" as User
-participant "Frontend\n[Container: Vue.js]" as Frontend
+participant "Frontend\n[Container: React]" as Frontend
 participant "Backend API\n[Container: FastAPI]" as Backend
 database "PostgreSQL\n[Container: Database]" as Database
-queue "RabbitMQ\n[Container: Message Broker]" as RabbitMQ
-participant "Celery Worker\n[Container: Python]" as Worker
-participant "OpenStack\n[External System]" as OpenStack
-participant "Git Repository\n[External System]" as Git
+participant "Pod-Deployer\n[Container: Python]" as Worker
+participant "Kubernetes-API\n[External System]" as K8s
 
 == Deployment Creation ==
 
-User -> Frontend: Fill form and\nclick "Create Deployment"
+User -> Frontend: Formular ausfüllen und\n"Deployen" klicken
 activate Frontend
 
-Frontend -> Backend: POST /api/deployments\n{name, appId, releaseTag,\nuserInputVar, teams[]}
+Frontend -> Backend: POST /deployments\n{name, appId, releaseTag,\nuserInputVar, teams[]}
 activate Backend
 
-Backend -> Backend: get_current_user_keycloak()
+Backend -> Backend: get_current_user_keycloak()\nRolle und Rechte prüfen
 
-Backend -> Database: create_deployment(\nname, appId, userId,\nreleaseTag, userInputVar)
+Backend -> Backend: Freigabe der Version prüfen\n(Commit, Spec-Hash, Image-Digests)\nappstore.yaml am Commit lesen und validieren
+
+Backend -> Backend: Eingaben prüfen\n(Variablen, Dateien: Endung, Inhalt,\nVirenscan, Upload-Kontingent)
+
+Backend -> Database: Deployment, Teams und Mitglieder anlegen\n(Namespace dep-<8 hex> reservieren)
 activate Database
-
 Database --> Backend: deployment object
 deactivate Database
 
-alt teams provided
+alt kein aktiver Task (PENDING/RUNNING)
 
-Backend -> Database: create_teams_for_deployment(\ndeploymentId, teams[])
+Backend -> Database: prepare_task_in_tx: Task (PENDING) mit\njob "pods.deploy_application" und job_kwargs\nin derselben Transaktion; Commit sendet\nNOTIFY task_queued
 activate Database
-loop for each team
-    Database -> Database: create Team(\nname, deploymentId)
-    loop for each userId in team
-        Database -> Database: create UserToTeam(\nuserId, teamId)
-    end
-end
-Database --> Backend: team objects
-deactivate Database
-
-Backend -> Database: create_user_to_deployments(\ndeploymentId, user_ids)
-activate Database
-
-loop for each userId
-    Database -> Database: create UserToDeployment(\nuserId, deploymentId)
-end
-Database --> Backend: user associations
-deactivate Database
-
-end
-
-Backend -> Backend: parse userInputVar JSON
-
-Backend -> Backend: format_teams_dict()
-
-Backend -> Backend: task_service.register_new_task()
-
-Backend -> Database: get_tasks(deploymentId)
-activate Database
-Database --> Backend: existing tasks
-deactivate Database
-
-alt no active tasks (PENDING/RUNNING)
-
-Backend -> RabbitMQ: celery_app.send_task(\n"tasks.deploy_application",\nargs=[...])
-activate RabbitMQ
-RabbitMQ --> Backend: AsyncResult with celery_task_id
-deactivate RabbitMQ
-
-Backend -> Database: create_task(\ndeploymentId, celeryTaskId,\ntype: DEPLOY,\nstatus: PENDING)
-activate Database
-
 Database --> Backend: task object
 deactivate Database
 
 Backend --> Frontend: 201 Created\nDeploymentResponse
 deactivate Backend
 
-Frontend --> User: Deployment created
+Frontend --> User: Deployment angelegt,\nLive-Log öffnet sich (SSE)
 deactivate Frontend
 
-else active task exists
+else aktiver Task vorhanden
 
-Backend --> Frontend: 400 Bad Request\n"Active task already running"
+Backend --> Frontend: 409 Conflict\n(höchstens ein aktiver Task je Deployment)
 deactivate Backend
+activate Frontend
 
-Frontend --> User: Error: Cannot create deployment,\nactive task in progress
+Frontend --> User: Fehler: Es läuft bereits ein Task
 deactivate Frontend
 
 end
 
 == Background Task Execution ==
 
-RabbitMQ -> Worker: task message received\nfrom queue
+Database -> Worker: NOTIFY task_queued\n(Worker holt die Task:\nFOR UPDATE SKIP LOCKED)
 activate Worker
 
-Worker -> RabbitMQ: emit task-started event\n{type: 'task-started',\nuuid: celery_task_id}
-activate RabbitMQ
+Worker -> Database: Lease auf der Task-Zeile,\nstatus = RUNNING
+Database --> Backend: NOTIFY task_events\n(Backend streamt per SSE an das Frontend)
 
-RabbitMQ --> Backend: event received
-deactivate RabbitMQ
-activate Backend
+Worker -> Worker: SPEC_LOAD: appstore.yaml aus dem Job\nerneut validieren
 
-Backend -> Database: get_task(\ncelery_task_id)
-activate Database
-Database --> Backend: task object
-deactivate Database
+Worker -> K8s: K8S_NAMESPACE: Namespace dep-<8 hex> anlegen
+activate K8s
+K8s --> Worker: Namespace angelegt
+deactivate K8s
 
-Backend -> Database: update_task(\ntaskId,\n{status: RUNNING,\nstarted_at: utcnow()})
-activate Database
+Worker -> K8s: K8S_POLICIES: ResourceQuota, LimitRange,\nNetworkPolicies
+Worker -> K8s: K8S_APPLY: Workloads (StatefulSet, Service, Ingress)\nbzw. KubeVirt-VM per Server-Side Apply
+activate K8s
+Worker -> K8s: K8S_WAIT_READY: Snapshot abfragen,\nbis alle Pods/VMs bereit sind
+K8s --> Worker: bereit
+deactivate K8s
 
-Database --> Backend: updated task
-deactivate Database
+Worker -> Database: Fortschritt und Logzeilen als Events\nin task_events (in jeder Phase)
 
-deactivate Backend
+Worker -> Worker: OUTPUTS_AND_CLEANUP:\nZugangsdaten und Links bauen,\nPasswörter generieren
 
-Worker -> Worker: get_openstack_credentials()\nfrom clouds.yaml
-
-Worker -> Git: git_service.clone_release(\ndeployment_id, git_url, tag)
-activate Git
-Git --> Worker: repo_path (local directory)
-deactivate Git
-
-alt packer/template.pkr.hcl exists
-
-    Worker -> Worker: image_name = appId + "-" + release
-
-    Worker -> OpenStack: check_image_exists(image_name)
-    activate OpenStack
-    OpenStack --> Worker: (exists: bool, image_id: str)
-    deactivate OpenStack
-
-    alt image does not exist
-        Worker -> Worker: PackerExecutor.init()
-
-        Worker -> Worker: merge packer_vars:\nuser_vars["packer"] +\nimage_name
-
-        Worker -> Worker: PackerExecutor.validate(\ntemplate.pkr.hcl, packer_vars) 
-        
-        Worker -> Worker: PackerExecutor.build(\ntemplate.pkr.hcl,\npacker_vars)
-    end
-end
-
-Worker -> Worker: TerraformExecutor.init()
-
-Worker -> Worker: merge terraform_vars:\nuser_vars["terraform"] +\nimage_name + users (teams)
-
-Worker -> Worker: TerraformExecutor.plan(\nvariables: terraform_vars)
-
-Worker -> OpenStack: TerraformExecutor.apply(\nvariables: terraform_vars)
-activate OpenStack
-OpenStack --> Worker: resources created
-deactivate OpenStack
-
-Worker -> Worker: collect_terraform_outputs()
-
-Worker -> Worker: collect_terraform_state()
-
-Worker -> Worker: git_service.cleanup_repository(\nrepo_path)
-
-Worker -> RabbitMQ: emit task-succeeded event\n{type: 'task-succeeded',\nuuid: celery_task_id,\nresult: {...}}
-activate RabbitMQ
-note right
-  result = {
-    status: "success",
-    deployment_id: str,
-    logs: list[dict],
-    tf_state: str,
-    terraform_outputs: dict
-  }
-end note
-
-RabbitMQ --> Backend: event received
-deactivate RabbitMQ
-activate Backend
-
-Backend -> Database: get_tasks(\ncelery_task_id)
-activate Database
-Database --> Backend: task object
-deactivate Database
-
-Backend -> Database: update_task(\ntaskId,\n{status: SUCCESS,\nfinished_at: utcnow(),\nlogs: json.dumps(result['logs']),\ntf_state: result['tf_state'],\noutputs: json.dumps(result['terraform_outputs'])})
-activate Database
-Database --> Backend: updated task
-deactivate Database
-
-deactivate Backend
-
+Worker -> Database: Status SUCCESS, finished_at,\nversiegelte Ergebnisse (tasks.outputs_enc, Fernet)
 deactivate Worker
+
+Database --> Backend: NOTIFY task_events (Terminal-Event)
+activate Backend
+Backend -> Backend: Reconciler / task_finalizer:\nFolgearbeit genau einmal
+deactivate Backend
 
 == Error Handling ==
 
-alt Task fails at any step
+alt Task schlägt in einem Schritt fehl
 
-    Worker -> Worker: catch Exception
-    note right
-        Will be thrown if one of the steps in the Background Task Execution fails
-    end note
+    activate Worker
+    Worker -> Worker: Exception abfangen\n(Fehler in einer Phase, Zeitlimit,\nCancel oder ungültige Spec)
 
-    Worker -> Worker: collect_terraform_state()\nif terraform_dir exists
+    Worker -> K8s: _cleanup_after_failure:\nNamespace dep-<8 hex> löschen,\nfalls er zu diesem Deployment gehört
+    activate K8s
+    K8s --> Worker: Namespace entfernt
+    deactivate K8s
 
+    Worker -> Database: Status FAILED, finished_at, failure_kind\n(worker_failure | infrastructure | time_limit),\nLogs und versiegelte Ergebnisse
+    deactivate Worker
 
-    Worker -> Worker: collect_terraform_outputs()\nif terraform_dir exists
-
-    Worker -> Worker: git_service.cleanup_repository()
-
-    Worker -> RabbitMQ: emit task-failed event\n{type: 'task-failed',\nuuid: celery_task_id,\nexception: Failure(...)}
-    activate RabbitMQ
-    note right
-      Failure exception contains
-      JSON-encoded data:
-      {
-        error: str,
-        deployment_id: str,
-        logs: list[dict],
-        tf_state: str | None,
-        terraform_outputs: dict | None
-      }
-    end note
-
-    RabbitMQ --> Backend: event received
-    deactivate RabbitMQ
+    Database --> Backend: NOTIFY task_events (Terminal-Event)
     activate Backend
 
-    Backend -> Database: get_tasks(\ncelery_task_id)
-    activate Database
-    Database --> Backend: task object
-    deactivate Database
+    Backend -> Backend: task_finalizer erledigt die Folgearbeit genau einmal
 
-    Backend -> Backend: parse exception JSON\nvia regex extraction
     note right
-      Extracts structured data
-      from Failure exception message
+      Stirbt der Worker (z. B. kill -9), läuft die Lease ab:
+      der Reconciler setzt die Task auf FAILED (worker_lost),
+      ein zweiter Lauf findet nicht statt.
     end note
-
-    Backend -> Database: update_task(\ntaskId,\n{status: FAILED,\nfinished_at: utcnow(),\nlogs: formatted logs + error,\ntf_state: partial state,\noutputs: partial outputs})
-    activate Database
-    Database --> Backend: updated task
-    deactivate Database
 
     deactivate Backend
 
@@ -249,7 +121,7 @@ end
 
 == User retrieves deployment status ==
 
-User -> Frontend: View deployment details
+User -> Frontend: Deployment-Details öffnen
 activate Frontend
 
 Frontend -> Backend: GET /deployments/{id}
@@ -257,9 +129,9 @@ activate Backend
 
 Backend -> Backend: get_current_user_keycloak()
 
-Backend -> Backend: ensure_resource_access(\ndeployment.userId, current_user)
+Backend -> Backend: Zugriff prüfen (Besitzer, Mitglied,\nKurs-Lehrender oder Admin)
 
-Backend -> Database: get_deployment(\ndeploymentId)\nwith eager loading
+Backend -> Database: get_deployment(deploymentId)\nmit Beziehungen
 activate Database
 note right
   deployment.user
@@ -267,21 +139,24 @@ note right
   deployment.tasks
   deployment.teams
 end note
-Database --> Backend: Deployment with relations
+Database --> Backend: Deployment mit Beziehungen
 deactivate Database
 
 note right
-  status is derived
-  from deployment.tasks:
-  - Latest task status
-  - PENDING/RUNNING/SUCCESS/FAILED
+  Status wird aus dem letzten
+  Task abgeleitet:
+  PENDING / RUNNING / SUCCESS / FAILED / CANCELLED
 end note
 
-Backend --> Frontend: DeploymentWithRelations
+opt K8S_STATUS_ENABLED
+  Backend -> K8s: Live-Status der Workloads lesen\n(nur dep-*-Namespaces, nur lesend)
+  K8s --> Backend: Pods / VMs
+end
 
+Backend --> Frontend: DeploymentWithRelations\n(permissions und actions)
 deactivate Backend
 
-Frontend --> User: Display deployment:\n- status (from tasks)\n- logs (from latest task)\n- outputs (from latest task)
+Frontend --> User: Status, Workloads, Logs (SSE)\nund eigene Zugangsdaten (GET /my-access)
 deactivate Frontend
 
 @enduml

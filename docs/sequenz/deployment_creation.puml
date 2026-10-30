@@ -6,86 +6,47 @@
 title Deployment Creation - Sequence Diagram
 
 actor "User" as User
-participant "Frontend\n[Container: Vue.js]" as Frontend
+participant "Frontend\n[Container: React]" as Frontend
 participant "Backend API\n[Container: FastAPI]" as Backend
 database "PostgreSQL\n[Container: Database]" as Database
-queue "RabbitMQ\n[Container: Message Broker]" as RabbitMQ
 
-User -> Frontend: Fill form and\nclick "Create Deployment"
+User -> Frontend: Formular ausfüllen und\n"Deployen" klicken
 activate Frontend
 
-Frontend -> Backend: POST /api/deployments\n{name, appId, releaseTag,\nuserInputVar, teams[]}
+Frontend -> Backend: POST /deployments\n{name, appId, releaseTag,\nuserInputVar, teams[]}
 activate Backend
 
-Backend -> Backend: get_current_user_keycloak()
+Backend -> Backend: get_current_user_keycloak()\nRolle und Rechte prüfen
 
-Backend -> Database: create_deployment(\nname, appId, userId,\nreleaseTag, userInputVar)
+Backend -> Backend: Freigabe der Version prüfen\n(Commit, Spec-Hash, Image-Digests)\nappstore.yaml am Commit lesen und validieren
+
+Backend -> Backend: Eingaben prüfen\n(Variablen, Dateien: Endung, Inhalt,\nVirenscan, Upload-Kontingent)
+
+Backend -> Database: Deployment, Teams und Mitglieder anlegen\n(Namespace dep-<8 hex> reservieren)
 activate Database
-
 Database --> Backend: deployment object
 deactivate Database
 
-alt teams provided
+alt kein aktiver Task (PENDING/RUNNING)
 
-Backend -> Database: create_teams_for_deployment(\ndeploymentId, teams[])
+Backend -> Database: prepare_task_in_tx: Task (PENDING) mit\njob "pods.deploy_application" und job_kwargs\nin derselben Transaktion; Commit sendet\nNOTIFY task_queued
 activate Database
-loop for each team
-    Database -> Database: create Team(\nname, deploymentId)
-    loop for each userId in team
-        Database -> Database: create UserToTeam(\nuserId, teamId)
-    end
-end
-Database --> Backend: team objects
-deactivate Database
-
-Backend -> Database: create_user_to_deployments(\ndeploymentId, user_ids)
-activate Database
-
-loop for each userId
-    Database -> Database: create UserToDeployment(\nuserId, deploymentId)
-end
-Database --> Backend: user associations
-deactivate Database
-
-end
-
-Backend -> Backend: parse userInputVar JSON
-
-Backend -> Backend: format_teams_dict()
-
-Backend -> Backend: task_service.register_new_task()
-
-Backend -> Database: get_tasks(deploymentId)
-activate Database
-Database --> Backend: existing tasks
-deactivate Database
-
-alt no active tasks (PENDING/RUNNING)
-
-Backend -> RabbitMQ: celery_app.send_task(\n"tasks.deploy_application",\nargs=[...])
-activate RabbitMQ
-RabbitMQ --> Backend: AsyncResult with celery_task_id
-deactivate RabbitMQ
-
-Backend -> Database: create_task(\ndeploymentId, celeryTaskId,\ntype: DEPLOY,\nstatus: PENDING)
-activate Database
-
 Database --> Backend: task object
 deactivate Database
 
 Backend --> Frontend: 201 Created\nDeploymentResponse
 deactivate Backend
 
-Frontend --> User: Deployment created
+Frontend --> User: Deployment angelegt,\nLive-Log öffnet sich (SSE)
 deactivate Frontend
 
-else active task exists
+else aktiver Task vorhanden
 
-Backend --> Frontend: 400 Bad Request\n"Active task already running"
+Backend --> Frontend: 409 Conflict\n(höchstens ein aktiver Task je Deployment)
 deactivate Backend
 activate Frontend
 
-Frontend --> User: Error: Cannot create deployment,\nactive task in progress
+Frontend --> User: Fehler: Es läuft bereits ein Task
 deactivate Frontend
 
 end

@@ -2,7 +2,7 @@
 
 !pragma layout smetana
 
-title CI/CD für App Store Entwickler (IaC Validation Pipeline)
+title Weg einer App in den Store (appstore.yaml, Pods / KubeVirt)
 
 skinparam backgroundColor #FEFEFE
 skinparam activityBackgroundColor #lightblue
@@ -14,269 +14,102 @@ skinparam noteBorderColor #CCCC00
 
 |App Developer|
 start
-partition "Setup" {
-    :App Repository erstellen;
-    ' note right
-    '     **Repository-Struktur:**
-    '     - /packer/template.pkr.hcl
-    '     - /terraform/main.tf
-    '     - /terraform/variables.tf
-    '     - /.github/workflows/validate.yml
-    '     - README.md
-    ' end note
-    
-    :GitHub Actions Workflow\neinrichten (.github/workflows);
+partition "Entwicklung" {
+    :Öffentliches GitHub-Repository erstellen;
+    note right
+        **Repository-Struktur:**
+        - /appstore.yaml  (App-Vertrag v2)
+        - Quellcode und Dockerfile der App
+        - README.md
+    end note
+
+    :App entwickeln und Container-Image bauen;
+    note right
+        Der Container läuft ohne Root,
+        lauscht auf einem Port >= 1024
+        und schreibt nur in writablePaths.
+    end note
 }
 
-partition "Development" {
-    :Feature Branch erstellen;
-    :Code ändern\n(Packer/Terraform);
-    
-    partition "Optional: Lokales Testen" #lightgray {
-        :OpenStack Credentials\nlokal einrichten (clouds.yaml);
-        :Packer lokal ausführen\n(packer build);
-        :Terraform lokal testen\n(plan/apply);
-        :Manuell aufräumen\n(terraform destroy);
+partition "Image veröffentlichen" {
+    :Image nach ghcr.io/dhbw-appstore-t3/apps/<name> pushen;
+    :Digest (sha256) des Images ermitteln;
+    :appstore.yaml schreiben\n(Image nur per Digest, Ressourcen,\nVariablen, Zugang);
+}
+
+partition "Lokal testen (optional)" {
+    :Lokalen AppStore-Stack starten\n(k3d, deployment/docs/dev-setup.md);
+    :App registrieren, einreichen,\nfreigeben und deployen;
+    note right
+        Schnelles Feedback ohne Staging.
+        Keine OpenStack-Zugangsdaten nötig.
+    end note
+}
+
+:Release mit Git-Tag erstellen\n(v<Major>.<Minor>.<Patch>);
+
+|AppStore Plattform|
+partition "Registrierung und Einreichung" {
+    :Repository-URL unter "App hinzufügen" eintragen;
+    :Backend liest appstore.yaml\nam Commit des Tags;
+
+    if (appstore.yaml vorhanden und gültig?) then (ja)
+        :Prüfung gegen Plattform-Grenzen;
         note right
-            **Lokales Testing:**
-            - OpenStack CLI installiert
-            - clouds.yaml konfiguriert
-            - Quota beachten!
-            - Kosten im Auge behalten
+            - Image-Registry-Allowlist, nur Digest
+            - CPU / Speicher / Storage-Limits
+            - höchstens 3 Container
+            - VM-Image-Namespaces (kubevirt-vm)
+            - unbekannte Felder werden abgelehnt
         end note
-    }
-    
-    :Commit & Push;
-}
-
-|GitHub Actions (App Repo)|
-partition "CI Pipeline - Quality Checks" {
-    :Trigger: Push Event;
-    
-    partition "Terraform Checks" {
-        :terraform fmt -check\n(Format prüfen);
-        
-        if (Format korrekt?) then (ja)
-            #palegreen:✓ Formatierung OK;
-        else (nein)
-            #lightcoral:✗ Formatierung fehlerhaft;
-            :Action fails;
-            stop
-        endif
-        
-        :terraform init\n(Provider & Module laden);
-        :terraform validate\n(Syntax & Referenzen prüfen);
-        
-        if (Validate erfolgreich?) then (ja)
-            #palegreen:✓ Terraform Config valid;
-        else (nein)
-            #lightcoral:✗ Terraform Fehler;
-            :Fehlerdetails in Log;
-            stop
-        endif
-    }
-    
-    partition "Packer Checks" {
-        :packer init\n(Required Plugins installieren);
-        :packer fmt -check\n(HCL Format prüfen);
-        
-        if (Format korrekt?) then (ja)
-            #palegreen:✓ Packer Format OK;
-        else (nein)
-            #lightcoral:✗ Format fehlerhaft;
-            :Action fails;
-            stop
-        endif
-        
-        :packer validate\n(Template-Syntax prüfen);
-        
-        if (Validate erfolgreich?) then (ja)
-            #palegreen:✓ Packer Template valid;
-        else (nein)
-            #lightcoral:✗ Packer Fehler;
-            :Fehlerdetails in Log;
-            stop
-        endif
-    }
-    
-    partition "Security & Quality" {
-        :tfsec / checkov\n(IaC Security Scan);
-        
-        if (Critical Issues?) then (ja)
-            #lightcoral:✗ Security Blocker;
-            :Action fails;
-            stop
-        else (nein)
-            #palegreen:✓ Keine kritischen Issues;
-            note right
-                Warnings erlaubt,
-                nur Critical blockiert
-            end note
-        endif
-        
-    }
-    
-    #palegreen:✓ Alle CI Checks bestanden;
-}
-
-|App Developer|
-partition "App Registrierung & Publishing" {
-    :Platform Frontend öffnen\n("Neue App registrieren");
-    
-    :Formular ausfüllen;
-    note right
-        **Erforderliche Angaben:**
-        - App Name
-        - Beschreibung
-        - Git Repository URL (SSH)
-        - Default Terraform Variables
-    end note
-    
-    :SSH Deploy Key anzeigen lassen;
-    note right
-        Platform generiert/zeigt
-        Worker SSH Public Key
-    end note
-    
-    :Deploy Key im Git Repo einfügen;
-    note right
-        **Git Repo Settings:**
-        Settings → Deploy Keys → Add
-        → Key einfügen → Read-Only
-    end note
-    
-    :Im UI bestätigen:\n"Deploy Key hinterlegt";
-}
-
-|Platform Backend|
-partition "Validierung & Test-Deployment" {
-    :Git Repository clonen\n(mit SSH Key);
-    
-    if (Clone erfolgreich?) then (ja)
-        #palegreen:✓ Git Zugriff OK;
+        :Version einreichen\n(Commit, Spec-Hash und Image-Digests werden fixiert);
     else (nein)
-        #lightcoral:✗ SSH Key Fehler;
-        :Fehlermeldung an Developer;
+        #lightcoral:✗ 422 appstore_yaml_missing\noder Fehler mit Feldpfad;
+        |App Developer|
+        :Datei korrigieren, neuen Tag erstellen;
         stop
     endif
-    
-    :Repository-Struktur prüfen\n(packer/, terraform/ vorhanden?);
-    
-    if (Struktur korrekt?) then (ja)
-        #palegreen:✓ App-Struktur valid;
+}
+
+|Admin|
+partition "Review" {
+    :Spec, Images und Beschreibung prüfen;
+    if (Freigabe?) then (ja)
+        :Version freigeben\n(gilt für genau diesen Commit);
     else (nein)
-        #lightcoral:✗ Fehlende Dateien;
-        :Fehler: Struktur-Anforderungen zeigen;
+        #lightcoral:✗ Ablehnung mit Notiz;
+        |App Developer|
+        :Anpassen und neue Version einreichen;
         stop
     endif
-    
-    :Test-Deployment triggern\n(Worker);
 }
 
-|Celery Worker|
-partition "Test-Deployment Pipeline" {
-    :Git Repository clonen\n(latest commit);
-    :OpenStack Credentials laden\n(aus clouds.yaml);
-    
-    partition "Packer Build Phase" {
-        :packer init\n(Plugins installieren);
-        :packer build\n(VM Image erstellen);
-        note right
-            **Packer Build:**
-            - Temporäre VM starten
-            - Provisioning ausführen
-            - Image snapshot erstellen
-            - Build VM löschen
-        end note
-        
-        if (Build erfolgreich?) then (ja)
-            #palegreen:✓ Image in OpenStack Glance;
-        else (nein)
-            #lightcoral:✗ Packer Build fehlgeschlagen;
-            :Build-Log an Backend senden;
-            :Repository aufräumen;
-            stop
-        endif
-    }
-    
-    partition "Terraform Validation Phase" {
-        :terraform init\n(Backend & Provider init);
-        :terraform plan\n(Execution Plan erstellen);
-        note right
-            **Terraform Plan:**
-            - Verwendet Packer Image ID
-            - Prüft Ressourcen-Creation
-            - Kein Apply! Nur Dry-Run
-        end note
-        
-        if (Plan erfolgreich?) then (ja)
-            #palegreen:✓ Infrastructure Code valid;
-        else (nein)
-            #lightcoral:✗ Terraform Plan fehlgeschlagen;
-            :Plan-Log an Backend senden;
-            :Test-Image löschen;
-            :Repository aufräumen;
-            stop
-        endif
-    }
-    
-    partition "Cleanup Phase" {
-        :Packer Test-Image löschen\n(aus OpenStack Glance);
-        :Repository-Klon löschen;
-        #palegreen:✓ Test-Deployment erfolgreich;
-    }
-}
-
-|Platform Backend|
-:Alle Validierungen bestanden;
-:App im Store veröffentlichen;
+|AppStore Plattform|
+#palegreen:✓ Version ist deploybar;
+note right
+    Zeigt der Tag später auf einen anderen Commit,
+    ist die Version nicht mehr deploybar
+    (409 version_moved).
+end note
 
 |App Developer|
-#palegreen:✓ App ist live im Store;
-:Benachrichtigung erhalten;
+:Freigabe im Store sehen;
 
 stop
 
 legend bottom
-    **CI/CD für App Store Entwickler:**
-    
-    **Validation Pipeline (GitHub Actions im App Repo):**
-    ✓ **Terraform fmt -check** - Code Formatierung prüfen
-    ✓ **Terraform validate** - Syntax & Konfiguration validieren
-    ✓ **Packer fmt -check** - HCL Formatierung prüfen
-    ✓ **Packer validate** - Template-Syntax prüfen
-    ✓ **Security Scan** - IaC Security (checkov/tfsec, nur Critical blockiert)
-    ✓ **Documentation Check** - README.md vorhanden
-    
-    **Lokales Testing (Optional):**
-    - OpenStack CLI lokal installieren
-    - clouds.yaml mit eigenen Credentials
-    - Packer/Terraform lokal ausführen
-    - Vorteil: Schnelles Feedback ohne Git Push
-    
-    **Deploy Key Setup (immer erforderlich):**
-    1. SSH Public Key wird im Registrierungs-UI angezeigt
-    2. Developer kopiert Key und fügt ihn im Git Repo ein
-    3. Worker kann Repo clonen (Read-Only Zugriff)
-    4. Gilt für private UND public Repos
-    
-    **Platform Test-Deployment (automatisch):**
-    ✓ **Git Clone Test** - SSH Zugriff prüfen
-    ✓ **Repository-Struktur** - packer/ und terraform/ vorhanden?
-    ✓ **Packer Build** - VM Image komplett bauen (in OpenStack)
-    ✓ **Terraform Plan** - Dry-Run (kein Apply!)
-    ✓ **Auto-Cleanup** - Test-Image löschen, Repo aufräumen
-    
-    **Wichtig:** Packer Build wird wirklich ausgeführt (nicht nur validate),
-    aber Terraform nur als Plan (keine echten Ressourcen deployen)
-    
-    **Workflow:**
-    1. Developer pusht Code → GitHub Actions validiert
-    2. App im Platform UI registrieren
-    3. SSH Key aus UI kopieren & im Git Repo hinterlegen
-    4. Platform führt automatisches Test-Deployment durch
-    5. Bei Erfolg: App wird im Store veröffentlicht
-    6. Developer bekommt Benachrichtigung
+    **Weg einer App in den Store:**
+
+    ✓ **Kein Build im AppStore** - Images baut und veröffentlicht der App-Entwickler selbst
+    ✓ **Kein fremder Code im Worker** - die Plattform rendert alle Kubernetes-Objekte aus der Spec
+    ✓ **Freigabe = Commit + Spec-Hash + Image-Digests**
+    ✓ **Nur öffentliche Repositories** - die Plattform liest anonym (APP_GIT_ALLOWED_HOSTS)
+
+    **Laufzeiten:**
+    - kubernetes: Pods im Namespace dep-<8 hex>
+    - kubevirt-vm: Desktop-VM aus einem Golden Image (noVNC im Browser)
+
+    Details: docs/AppentwicklerGuide.md
 endlegend
 
 @enduml
