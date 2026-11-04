@@ -76,7 +76,8 @@ Unbekannte Felder werden abgelehnt. Sicherheitsrelevantes (`securityContext`, Ne
 | `apiVersion` | immer `appstore/v2` |
 | `name` | App-Name (`^[a-z][a-z0-9-]{0,30}$`) |
 | `runtime` | `kubernetes` oder `kubevirt-vm` |
-| `scope` | `team` (Standard) oder `user`; bei `user` erzwingt der Wizard ein eigenes Team pro Person |
+| `scope` | `team` (Standard) oder `user`: eine Umgebung je Team oder je Person. Ohne `scopeChoice` erzwingt der Wizard bei `user` ein eigenes Team pro Person |
+| `scopeChoice` | optional, `true` oder `false` (Standard): die deployende Person wählt je Deployment eine Umgebung je Team oder je Person; `scope` ist dann der Startwert. Teams mit mehreren Personen und eine Umgebung je Person sind so möglich (z. B. eine Datei je Team, eine IDE je Person). Das Backend legt die Wahl fest ins Spec des Jobs und speichert, was lief (`scope` im Deployment) |
 | `workload.containers[]` | 1 bis 3 Container; genau **einer** hat `expose` |
 | `containers[].image` | Digest-Image aus der Allowlist |
 | `containers[].expose` | `port` und `path` des Ingress |
@@ -98,6 +99,7 @@ apiVersion: appstore/v2
 name: online-ide
 runtime: kubernetes
 scope: user
+scopeChoice: true
 egress: none
 userChoices:
   internet: true
