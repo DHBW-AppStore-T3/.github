@@ -301,12 +301,12 @@ Alternativ können Sie in der Deployment-Übersicht oben rechts auf **+ Neues De
 
    Die Verteilung legt auch fest, wie viele Umgebungen (Pods bzw. Desktops) entstehen:
    * Läuft die App **je Person** (Hinweis „App läuft je Person“), bekommt jede Person ein eigenes Team und eine eigene Umgebung; die Verteilung ist dann fest.
-   * Lässt die App die Wahl (auf der App-Seite „je Person oder je Gruppe“), bekommt bei **Jeder Nutzer einzeln** jede Person eine eigene Umgebung. Bei **Eine Gruppe** und **Individuell** wählen Sie unter den Schaltflächen:
+   * Lässt die App die Wahl (auf der App-Seite „je Person oder je Gruppe“), bekommt bei **Jeder Nutzer einzeln** jede Person eine eigene Umgebung. Bei **Eine Gruppe** und **Individuell** wählen Sie unter „Umgebungen einer Gruppe“; darunter steht, was die gewählte Option bedeutet:
      * **Eine je Gruppe:** Die Mitglieder einer Gruppe arbeiten gemeinsam in einer Umgebung.
      * **Eine je Person:** Jede Person bekommt eine eigene Umgebung; die Gruppe bestimmt nur, wer welche Dateien bekommt (z. B. ein Aufgaben-ZIP je Gruppe in der Online-IDE).
    * Sonst bekommt jedes Team eine gemeinsame Umgebung.
 
-   Die Übersicht in Schritt 4 sagt, was daraus wird; erlaubt die App eine Ressourcenauswahl, nennt sie auch die Summe für alle Umgebungen.
+   Die Übersicht in Schritt 4 nennt die Wahl neben der Verteilung (z. B. „Eine Umgebung je Person“) und sagt, wie viele Umgebungen daraus werden; erlaubt die App eine Ressourcenauswahl, nennt sie auch die Summe für alle Umgebungen.
 
 <figure style="margin-bottom: 30px;">
   <img src="img/Studenten_Verteilen.png" alt="Studenten verteilen" width="80%">
