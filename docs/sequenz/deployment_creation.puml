@@ -22,7 +22,9 @@ Backend -> Backend: Freigabe der Version prüfen\n(Commit, Spec-Hash, Image-Dige
 
 Backend -> Backend: Eingaben prüfen\n(Variablen, Dateien: Endung, Inhalt,\nVirenscan, Upload-Kontingent)
 
-Backend -> Database: Deployment, Teams und Mitglieder anlegen\n(Namespace dep-<8 hex> reservieren)
+Backend -> Backend: Wahl der Person anwenden, nur wo die App\nsie erlaubt (userInputVar.resources, .network,\n.scope); sonst 422. Das Spec des Jobs ist danach fest.\nWorkloads zählen (je Team oder je Person)
+
+Backend -> Database: Deployment, Teams und Mitglieder anlegen\n(Namespace dep-<8 hex> reservieren,\nk8s_workloads, k8s_scope)
 activate Database
 Database --> Backend: deployment object
 deactivate Database

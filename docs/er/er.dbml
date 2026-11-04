@@ -31,10 +31,16 @@ Table apps {
 Table deployments {
   deploymentId uuid [primary key]
   name varchar [not null]
+  releaseTag varchar
+  commit_sha varchar(40) [note: 'Commit des Tags beim Anlegen; jeder Job läuft genau diesen']
+  runtime varchar(16) [not null, default: 'kubernetes', note: 'kubernetes | kubevirt-vm']
+  k8s_namespace varchar(63) [note: 'dep-<8 hex>, eindeutig auch über gelöschte Deployments']
+  k8s_workloads integer [note: 'Anzahl Workloads (je Team oder je Person), Budget des Owners']
+  k8s_scope varchar(8) [note: 'team | user: was der Job ausführt; NULL bei älteren Zeilen']
   userInputVar text
   userId uuid [not null, ref: > users.userId]
   appId uuid [not null, ref: > apps.appId]
-  releaseTag varchar
+  deleted_at timestamp [note: 'Soft-Delete']
 }
 
 Table tasks {
