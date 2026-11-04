@@ -220,7 +220,7 @@ In der Profilansicht sehen Sie alle relevanten Account-Daten auf einen Blick:
 Wenn Sie auf eine App-Kachel klicken, öffnet sich die Detailseite. Diese bietet Ihnen eine Übersicht der App und ermöglicht es Ihnen, ein Deployment zu starten.
 
 **Versionsauswahl & Deployment:**
-Auf der rechten Seite befindet sich eine fixierte Box. Wählen Sie die gewünschte Version aus und klicken Sie auf den Button **Jetzt Deployen**, um den Deployment-Prozess zu starten. Unter der Version steht, wie sie läuft: als Pods oder als VM, mit „je Person“ (jede Person bekommt eine eigene Umgebung) oder „je Person oder je Gruppe“ (Sie wählen es beim Deployen in der Verteilung).
+Auf der rechten Seite befindet sich eine fixierte Box. Wählen Sie die gewünschte Version aus und klicken Sie auf den Button **Jetzt Deployen**, um den Deployment-Prozess zu starten. Unter der Version steht, wie sie läuft: als Pods oder als VM, mit „je Person“ (jede Person bekommt eine eigene Umgebung) oder „je Person oder je Team“ (Sie wählen es beim Deployen in der Verteilung).
 
 Wenn Sie die App selbst hinzugefügt haben, stehen Ihnen zusätzlich **Bearbeiten** und **Löschen** oben rechts zur Verfügung. Über den Tab **App Store** steuern Sie die Sichtbarkeit und können Versionen zur Freigabe einreichen.
 
@@ -293,7 +293,7 @@ Alternativ können Sie in der Deployment-Übersicht oben rechts auf **+ Neues De
 </figure>
 
 2. **Schritt Verteilung:** Bilden Sie die Teams. Es gibt drei Möglichkeiten:
-   * **Eine Gruppe:** Alle ausgewählten Studenten in einem einzigen Team.
+   * **Ein Team:** Alle ausgewählten Studenten in einem einzigen Team.
    * **Jeder Nutzer einzeln:** Jeder Student bildet ein eigenes Team.
    * **Individuell:** Legen Sie über die Plus- und Minus-Buttons eine beliebige Anzahl an Teams fest.
 
@@ -301,16 +301,16 @@ Alternativ können Sie in der Deployment-Übersicht oben rechts auf **+ Neues De
 
    Die Verteilung legt auch fest, wie viele Umgebungen (Pods bzw. Desktops) entstehen:
    * Läuft die App **je Person** (Hinweis „App läuft je Person“), bekommt jede Person ein eigenes Team und eine eigene Umgebung; die Verteilung ist dann fest.
-   * Lässt die App die Wahl (auf der App-Seite „je Person oder je Gruppe“), bekommt bei **Jeder Nutzer einzeln** jede Person eine eigene Umgebung. Bei **Eine Gruppe** und **Individuell** wählen Sie unter „Umgebungen einer Gruppe“; darunter steht, was die gewählte Option bedeutet:
-     * **Eine je Gruppe:** Die Mitglieder einer Gruppe arbeiten gemeinsam in einer Umgebung.
-     * **Eine je Person:** Jede Person bekommt eine eigene Umgebung; die Gruppe bestimmt nur, wer welche Dateien bekommt (z. B. ein Aufgaben-ZIP je Gruppe in der Online-IDE).
+   * Lässt die App die Wahl (auf der App-Seite „je Person oder je Team“), bekommt bei **Jeder Nutzer einzeln** jede Person eine eigene Umgebung. Bei **Ein Team** und **Individuell** wählen Sie unter „Umgebungen eines Teams“; darunter steht, was die gewählte Option bedeutet:
+     * **Eine je Team:** Die Mitglieder eines Teams arbeiten gemeinsam in einer Umgebung.
+     * **Eine je Person:** Jede Person bekommt eine eigene Umgebung; das Team bestimmt nur, wer welche Dateien bekommt (z. B. ein Aufgaben-ZIP je Team in der Online-IDE).
    * Sonst bekommt jedes Team eine gemeinsame Umgebung.
 
    Die Übersicht in Schritt 4 nennt die Wahl neben der Verteilung (z. B. „Eine Umgebung je Person“) und sagt, wie viele Umgebungen daraus werden; erlaubt die App eine Ressourcenauswahl, nennt sie auch die Summe für alle Umgebungen.
 
 <figure style="margin-bottom: 30px;">
   <img src="img/Studenten_Verteilen.png" alt="Studenten verteilen" width="80%">
-  <figcaption style="font-size: 0.9em; color: #555;">Studenten verteilen: Gruppen, Zuteilung und Umgebungen je Gruppe oder je Person</figcaption>
+  <figcaption style="font-size: 0.9em; color: #555;">Studenten verteilen: Teams, Zuteilung und Umgebungen je Team oder je Person</figcaption>
 </figure>
 
 3. **Schritt Variablen:** Konfigurieren Sie die App-spezifischen Einstellungen (abhängig von der jeweiligen App).
